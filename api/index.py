@@ -709,6 +709,260 @@ def pay_paypal():
 
 
 # ============================================
+# Academy Routes - MasterClass Learning Center
+# ============================================
+
+# Static course data (no database needed for MVP)
+ACADEMY_COURSES = [
+    {
+        'id': 1,
+        'title': 'Trading Fundamentals',
+        'description': 'Master the basics of trading - from market structure to order types. Perfect for beginners.',
+        'difficulty': 'Beginner',
+        'duration': '4h 30m',
+        'lessons': 12,
+        'xp_reward': 500,
+        'thumbnail': '/api/static/courses/fundamentals.jpg',
+        'instructor': 'Sarah Johnson',
+        'rating': 4.8,
+        'students': 2547,
+        'modules': [
+            {'id': 1, 'title': 'Market Basics', 'lessons': 4, 'duration': '1h 30m'},
+            {'id': 2, 'title': 'Order Types', 'lessons': 4, 'duration': '1h 30m'},
+            {'id': 3, 'title': 'Risk Management', 'lessons': 4, 'duration': '1h 30m'}
+        ]
+    },
+    {
+        'id': 2,
+        'title': 'Technical Analysis Pro',
+        'description': 'Advanced chart patterns, indicators, and price action strategies used by professionals.',
+        'difficulty': 'Pro',
+        'duration': '8h 15m',
+        'lessons': 24,
+        'xp_reward': 1200,
+        'thumbnail': '/api/static/courses/technical.jpg',
+        'instructor': 'Michael Chen',
+        'rating': 4.9,
+        'students': 1823,
+        'modules': [
+            {'id': 1, 'title': 'Chart Patterns', 'lessons': 8, 'duration': '3h'},
+            {'id': 2, 'title': 'Indicators Mastery', 'lessons': 8, 'duration': '2h 30m'},
+            {'id': 3, 'title': 'Price Action', 'lessons': 8, 'duration': '2h 45m'}
+        ]
+    },
+    {
+        'id': 3,
+        'title': 'Forex Mastery',
+        'description': 'Complete guide to forex trading - pairs, sessions, and advanced strategies.',
+        'difficulty': 'Pro',
+        'duration': '6h 45m',
+        'lessons': 18,
+        'xp_reward': 1000,
+        'thumbnail': '/api/static/courses/forex.jpg',
+        'instructor': 'Ahmed Mansour',
+        'rating': 4.7,
+        'students': 1456,
+        'modules': [
+            {'id': 1, 'title': 'Forex Basics', 'lessons': 6, 'duration': '2h'},
+            {'id': 2, 'title': 'Session Trading', 'lessons': 6, 'duration': '2h 30m'},
+            {'id': 3, 'title': 'Advanced Strategies', 'lessons': 6, 'duration': '2h 15m'}
+        ]
+    },
+    {
+        'id': 4,
+        'title': 'Algorithmic Trading',
+        'description': 'Build and backtest your own trading algorithms. Python & automation focus.',
+        'difficulty': 'Elite',
+        'duration': '12h 30m',
+        'lessons': 32,
+        'xp_reward': 2000,
+        'thumbnail': '/api/static/courses/algo.jpg',
+        'instructor': 'Dr. Emily Watson',
+        'rating': 4.9,
+        'students': 892,
+        'modules': [
+            {'id': 1, 'title': 'Python for Trading', 'lessons': 10, 'duration': '4h'},
+            {'id': 2, 'title': 'Strategy Development', 'lessons': 12, 'duration': '5h'},
+            {'id': 3, 'title': 'Backtesting & Deployment', 'lessons': 10, 'duration': '3h 30m'}
+        ]
+    },
+    {
+        'id': 5,
+        'title': 'Crypto Trading Essentials',
+        'description': 'Navigate the crypto markets with confidence. DeFi, NFTs, and more.',
+        'difficulty': 'Pro',
+        'duration': '5h 20m',
+        'lessons': 15,
+        'xp_reward': 800,
+        'thumbnail': '/api/static/courses/crypto.jpg',
+        'instructor': 'Jake Rivera',
+        'rating': 4.6,
+        'students': 3201,
+        'modules': [
+            {'id': 1, 'title': 'Crypto Fundamentals', 'lessons': 5, 'duration': '1h 45m'},
+            {'id': 2, 'title': 'DeFi & NFTs', 'lessons': 5, 'duration': '1h 50m'},
+            {'id': 3, 'title': 'Advanced Crypto Trading', 'lessons': 5, 'duration': '1h 45m'}
+        ]
+    },
+    {
+        'id': 6,
+        'title': 'Risk & Psychology',
+        'description': 'Master your mind and money. Essential for consistent profitability.',
+        'difficulty': 'Beginner',
+        'duration': '3h 45m',
+        'lessons': 10,
+        'xp_reward': 600,
+        'thumbnail': '/api/static/courses/psychology.jpg',
+        'instructor': 'Dr. Lisa Park',
+        'rating': 4.8,
+        'students': 4102,
+        'modules': [
+            {'id': 1, 'title': 'Trading Psychology', 'lessons': 4, 'duration': '1h 30m'},
+            {'id': 2, 'title': 'Risk Management', 'lessons': 3, 'duration': '1h 15m'},
+            {'id': 3, 'title': 'Discipline & Routine', 'lessons': 3, 'duration': '1h'}
+        ]
+    }
+]
+
+
+@app.route('/api/v1/<tenant>/academy/courses', methods=['GET'])
+@app.route('/v1/<tenant>/academy/courses', methods=['GET'])
+def get_academy_courses(tenant):
+    """Get all available courses."""
+    return jsonify(ACADEMY_COURSES), 200
+
+
+@app.route('/api/v1/<tenant>/academy/courses/<int:course_id>', methods=['GET'])
+@app.route('/v1/<tenant>/academy/courses/<int:course_id>', methods=['GET'])
+def get_academy_course(tenant, course_id):
+    """Get detailed course information."""
+    course = next((c for c in ACADEMY_COURSES if c['id'] == course_id), None)
+    if not course:
+        return jsonify({'error': 'Course not found'}), 404
+    return jsonify(course), 200
+
+
+@app.route('/api/v1/<tenant>/academy/me/stats', methods=['GET'])
+@app.route('/v1/<tenant>/academy/me/stats', methods=['GET'])
+@token_required
+def get_academy_stats(tenant):
+    """Get current user's learning stats."""
+    # Return mock stats for MVP
+    stats = {
+        'total_xp': 1250,
+        'level': 5,
+        'xp_to_next_level': 250,
+        'courses_completed': 2,
+        'courses_in_progress': 1,
+        'lessons_completed': 28,
+        'quiz_accuracy': 85.5,
+        'streak_days': 7,
+        'badges_earned': 3,
+        'rank': 'Rising Star',
+        'completed_courses': [1, 6],
+        'in_progress_courses': [2]
+    }
+    return jsonify(stats), 200
+
+
+@app.route('/api/v1/<tenant>/academy/me/recommendations', methods=['GET'])
+@app.route('/v1/<tenant>/academy/me/recommendations', methods=['GET'])
+@token_required
+def get_academy_recommendations(tenant):
+    """Get AI-powered course recommendations for user."""
+    # Return mock recommendations based on courses
+    recommendations = [
+        {
+            'id': 1,
+            'course_id': 2,
+            'course': ACADEMY_COURSES[1],  # Technical Analysis Pro
+            'reason': 'Based on your trading patterns, improving technical analysis could increase your win rate.',
+            'priority': 'high',
+            'match_score': 95
+        },
+        {
+            'id': 2,
+            'course_id': 4,
+            'course': ACADEMY_COURSES[3],  # Algorithmic Trading
+            'reason': 'Your systematic approach suggests you might benefit from algorithmic trading skills.',
+            'priority': 'medium',
+            'match_score': 82
+        },
+        {
+            'id': 3,
+            'course_id': 6,
+            'course': ACADEMY_COURSES[5],  # Risk & Psychology
+            'reason': 'Managing drawdowns better could significantly improve your overall performance.',
+            'priority': 'high',
+            'match_score': 88
+        }
+    ]
+    return jsonify(recommendations), 200
+
+
+@app.route('/api/v1/<tenant>/academy/me/recommendations/analyze', methods=['POST'])
+@app.route('/v1/<tenant>/academy/me/recommendations/analyze', methods=['POST'])
+@token_required
+def analyze_academy_recommendations(tenant):
+    """Trigger AI analysis of trading patterns and get recommendations."""
+    recommendations = [
+        {
+            'id': 1,
+            'course_id': 2,
+            'reason': 'Your recent trades show entry timing issues - Technical Analysis Pro can help.',
+            'priority': 'high',
+            'match_score': 92
+        }
+    ]
+    return jsonify({
+        'message': 'Analysis complete',
+        'recommendations': recommendations
+    }), 200
+
+
+@app.route('/api/v1/<tenant>/academy/lessons/<int:lesson_id>', methods=['GET'])
+@app.route('/v1/<tenant>/academy/lessons/<int:lesson_id>', methods=['GET'])
+def get_academy_lesson(tenant, lesson_id):
+    """Get lesson details."""
+    # Mock lesson data
+    lesson = {
+        'id': lesson_id,
+        'title': f'Lesson {lesson_id}: Introduction to Candlestick Patterns',
+        'course_id': 1,
+        'module_id': 1,
+        'duration': '15:30',
+        'video_url': 'https://example.com/video.mp4',
+        'content': 'Learn the basics of candlestick patterns and how to read price action...',
+        'quiz': {
+            'questions': [
+                {
+                    'id': 1,
+                    'question': 'What does a green (bullish) candle indicate?',
+                    'options': ['Price went down', 'Price went up', 'Price stayed same', 'Market closed'],
+                    'correct': 1
+                }
+            ]
+        },
+        'xp_reward': 50,
+        'order': lesson_id
+    }
+    return jsonify(lesson), 200
+
+
+@app.route('/api/v1/<tenant>/academy/me/badges', methods=['GET'])
+@app.route('/v1/<tenant>/academy/me/badges', methods=['GET'])
+@token_required
+def get_academy_badges(tenant):
+    """Get user's earned badges."""
+    badges = [
+        {'id': 1, 'badge_type': 'first_lesson', 'badge_name': 'First Steps', 'badge_icon': '🎯', 'earned_at': '2024-01-15T10:30:00'},
+        {'id': 2, 'badge_type': 'course_complete', 'badge_name': 'Course Graduate', 'badge_icon': '🎓', 'earned_at': '2024-01-20T14:45:00'},
+        {'id': 3, 'badge_type': 'streak_7', 'badge_name': 'Week Warrior', 'badge_icon': '🔥', 'earned_at': '2024-01-22T09:00:00'}
+    ]
+    return jsonify(badges), 200
+
+
+# ============================================
 # News Routes - Yahoo Finance & Moroccan Data
 # ============================================
 
