@@ -108,14 +108,41 @@ def execute_db(query, args=()):
     """Execute a write query and return last insert ID."""
     client = get_db()
     if not client:
+        print("[DB ERROR] Failed to get database client")
         return None
     
     try:
+        print(f"[DB DEBUG] Executing query: {query}")
+        print(f"[DB DEBUG] With args: {args}")
+        print(f"[DB DEBUG] Args types: {[type(a).__name__ for a in args]}")
+        
         result = client.execute(query, args)
-        return result.last_insert_rowid
+        
+        # Handle different result formats from libsql_client
+        if result is None:
+            print("[DB DEBUG] Result is None, returning None")
+            return None
+        
+        # Try to get last_insert_rowid, handle different result types
+        if hasattr(result, 'last_insert_rowid'):
+            row_id = result.last_insert_rowid
+            print(f"[DB DEBUG] Insert successful, last_insert_rowid: {row_id}")
+            return row_id
+        elif hasattr(result, 'rows') and len(result.rows) > 0:
+            print(f"[DB DEBUG] Result has rows: {result.rows}")
+            return result.rows[0][0] if result.rows[0] else None
+        else:
+            # For libsql_client, the result might be structured differently
+            print(f"[DB DEBUG] Result type: {type(result)}, Result: {result}")
+            # Try to access as dict or get rowid directly
+            if isinstance(result, dict):
+                return result.get('last_insert_rowid') or result.get('rowid')
+            return None
     except Exception as e:
         print(f"[DB ERROR] Execute failed: {str(e)}")
+        print(f"[DB ERROR] Exception type: {type(e).__name__}")
         print(f"[DB ERROR] Query was: {query}")
+        print(f"[DB ERROR] Args were: {args}")
         raise e
     finally:
         try:
@@ -937,24 +964,46 @@ def get_plan_by_slug(slug):
 
 def create_challenge_for_user(user_id, plan_id, start_balance):
     """Create a new challenge for the user."""
-    import uuid
     from datetime import datetime, timedelta
     
-    challenge_id = execute_db(
-        '''INSERT INTO challenges (user_id, plan_id, status, start_balance, equity, max_drawdown, profit_target, end_date)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-        (
-            user_id,
-            plan_id,
-            'active',
-            start_balance,
-            start_balance,
-            0.10,  # 10% max drawdown
-            0.10,  # 10% profit target
-            (datetime.utcnow() + timedelta(days=30)).isoformat()
-        )
+    # Prepare values
+    end_date_str = (datetime.utcnow() + timedelta(days=30)).isoformat()
+    max_drawdown = 0.10  # 10% max drawdown
+    profit_target = 0.10  # 10% profit target
+    
+    values = (
+        int(user_id),
+        int(plan_id),
+        'active',
+        float(start_balance),
+        float(start_balance),
+        float(max_drawdown),
+        float(profit_target),
+        str(end_date_str)
     )
-    return challenge_id
+    
+    print(f"[CHALLENGE DEBUG] Creating challenge with values:")
+    print(f"  user_id: {user_id} (type: {type(user_id).__name__})")
+    print(f"  plan_id: {plan_id} (type: {type(plan_id).__name__})")
+    print(f"  status: 'active'")
+    print(f"  start_balance: {start_balance} (type: {type(start_balance).__name__})")
+    print(f"  equity: {start_balance}")
+    print(f"  max_drawdown: {max_drawdown}")
+    print(f"  profit_target: {profit_target}")
+    print(f"  end_date: {end_date_str}")
+    
+    try:
+        challenge_id = execute_db(
+            '''INSERT INTO challenges (user_id, plan_id, status, start_balance, equity, max_drawdown, profit_target, end_date)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+            values
+        )
+        print(f"[CHALLENGE DEBUG] Challenge created with ID: {challenge_id}")
+        return challenge_id
+    except Exception as e:
+        print(f"[CHALLENGE ERROR] Failed to create challenge: {str(e)}")
+        print(f"[CHALLENGE ERROR] Exception type: {type(e).__name__}")
+        raise e
 
 
 @app.route('/api/checkout/crypto', methods=['POST'])
@@ -966,13 +1015,15 @@ def pay_crypto():
         data = request.get_json()
         plan_slug = data.get('plan')
         
+        print(f"[CRYPTO CHECKOUT] Processing payment for plan: {plan_slug}, user_id: {request.user_id}")
+        
         if not plan_slug or plan_slug not in PLAN_PRICES:
-            return jsonify({'error': 'Invalid plan'}), 400
+            return jsonify({'error': 'Invalid plan', 'details': f'Plan "{plan_slug}" not found in available plans'}), 400
         
         # Get plan from database
         plan = get_plan_by_slug(plan_slug)
         if not plan:
-            return jsonify({'error': 'Plan not found'}), 404
+            return jsonify({'error': 'Plan not found', 'details': f'Plan "{plan_slug}" not in database'}), 404
         
         amount = PLAN_PRICES.get(plan_slug, 200)
         start_balance = PLAN_BALANCES.get(plan_slug, 10000)
@@ -984,12 +1035,22 @@ def pay_crypto():
             plan_row = query_db('SELECT id FROM plans WHERE slug = ?', (plan_slug,), one=True)
             plan_id = plan_row.get('id') if plan_row else 1
         
+        print(f"[CRYPTO CHECKOUT] Plan ID: {plan_id}, Amount: {amount}, Start Balance: {start_balance}")
+        
         # Simulate crypto payment processing
         import uuid
         transaction_id = str(uuid.uuid4())
         
         # Create challenge for the user
-        challenge_id = create_challenge_for_user(request.user_id, plan_id, start_balance)
+        try:
+            challenge_id = create_challenge_for_user(request.user_id, plan_id, start_balance)
+        except Exception as db_error:
+            print(f"[CRYPTO CHECKOUT ERROR] Database error creating challenge: {str(db_error)}")
+            return jsonify({
+                'error': 'Database error',
+                'details': str(db_error),
+                'error_type': type(db_error).__name__
+            }), 500
         
         return jsonify({
             'success': True,
@@ -1000,7 +1061,8 @@ def pay_crypto():
             'amount_crypto': amount / 43000  # Approximate BTC conversion
         })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"[CRYPTO CHECKOUT ERROR] Unexpected error: {str(e)}")
+        return jsonify({'error': 'Payment processing failed', 'details': str(e)}), 500
 
 
 @app.route('/api/checkout/cmi', methods=['POST'])

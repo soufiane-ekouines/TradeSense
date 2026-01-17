@@ -26,15 +26,18 @@ CREATE TABLE IF NOT EXISTS paypal_settings (
 );
 
 CREATE TABLE IF NOT EXISTS challenges (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER REFERENCES users(id),
     plan_id INTEGER REFERENCES plans(id),
-    start_balance FLOAT NOT NULL,
-    equity FLOAT NOT NULL,
-    status VARCHAR(20) DEFAULT 'active', -- active, failed, passed
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    passed_at TIMESTAMP,
-    failed_at TIMESTAMP
+    start_balance REAL NOT NULL,
+    equity REAL NOT NULL,
+    max_drawdown REAL DEFAULT 0.10,
+    profit_target REAL DEFAULT 0.10,
+    status TEXT DEFAULT 'active', -- active, failed, passed
+    end_date TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    passed_at TEXT,
+    failed_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS trades (
