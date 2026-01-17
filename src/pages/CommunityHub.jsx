@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { useLanguage } from '../context/LanguageContext';
+import { Button } from '../components/ui/Button';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 const TENANT = 'default';
