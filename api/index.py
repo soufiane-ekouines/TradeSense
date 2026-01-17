@@ -286,6 +286,18 @@ def token_required(f):
 
 
 # ============================================
+# Request Debugging
+# ============================================
+
+@app.before_request
+def log_request():
+    """Log all incoming requests for debugging."""
+    print(f"[REQUEST] {request.method} {request.path}")
+    print(f"[REQUEST] Full path: {request.full_path}")
+    print(f"[REQUEST] Args: {dict(request.args)}")
+
+
+# ============================================
 # API Routes
 # ============================================
 
@@ -475,10 +487,12 @@ def get_plans():
 @token_required
 def get_active_challenge():
     """Get user's active challenge."""
+    print(f"[DEBUG] get_active_challenge called for user_id: {request.user_id}")
+    
     challenge = query_db(
         '''SELECT c.*, p.slug as plan_slug, p.price_dh, p.features_json
            FROM challenges c 
-           JOIN plans p ON c.plan_id = p.id 
+           LEFT JOIN plans p ON c.plan_id = p.id 
            WHERE c.user_id = ? AND c.status = 'active'
            ORDER BY c.created_at DESC
            LIMIT 1''',
@@ -486,8 +500,14 @@ def get_active_challenge():
         one=True
     )
     
+    print(f"[DEBUG] Challenge found: {challenge}")
+    
     if not challenge:
-        return jsonify({'error': 'No active challenge found'}), 404
+        # Return empty challenge instead of 404 so the page can still load
+        return jsonify({
+            'challenge': None,
+            'message': 'No active challenge found'
+        })
     
     # Parse features JSON if present
     if challenge.get('features_json'):
