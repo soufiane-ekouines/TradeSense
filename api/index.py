@@ -37,56 +37,128 @@ CORS(app, resources={
 })
 
 # ============================================
-# Turso Database Configuration
+# Turso Database Configuration (HTTP API)
 # ============================================
 
 TURSO_DATABASE_URL = os.environ.get('TURSO_DATABASE_URL', '')
 TURSO_AUTH_TOKEN = os.environ.get('TURSO_AUTH_TOKEN', '')
 
-# Try to import libsql_client, but don't crash if it fails
-try:
-    import libsql_client
-    LIBSQL_AVAILABLE = True
-except ImportError as e:
-    print(f"[WARNING] libsql_client not available: {e}")
-    LIBSQL_AVAILABLE = False
+import requests as http_requests  # Alias to avoid conflict with Flask's request
 
 
-def get_db():
+def turso_execute(sql, args=None):
     """
-    Create a new Turso database client for each request.
-    In serverless environments, we don't keep global connections open.
-    Returns the client or None if not configured.
+    Execute a SQL query against Turso using the HTTP API.
+    Returns a dict with 'columns' and 'rows' keys, or raises an exception.
     """
-    if not LIBSQL_AVAILABLE:
-        print("[DB ERROR] libsql_client not available")
-        return None
-        
     if not TURSO_DATABASE_URL or not TURSO_AUTH_TOKEN:
-        print("[DB ERROR] TURSO_DATABASE_URL or TURSO_AUTH_TOKEN not configured")
-        return None
+        raise Exception("TURSO_DATABASE_URL or TURSO_AUTH_TOKEN not configured")
+    
+    # Convert libsql URL to HTTP URL
+    # libsql://dbname-org.turso.io -> https://dbname-org.turso.io
+    http_url = TURSO_DATABASE_URL.replace('libsql://', 'https://').replace('wss://', 'https://')
+    if not http_url.startswith('https://'):
+        http_url = f'https://{http_url}'
+    
+    # Turso HTTP API endpoint
+    api_url = f"{http_url}/v2/pipeline"
+    
+    headers = {
+        'Authorization': f'Bearer {TURSO_AUTH_TOKEN}',
+        'Content-Type': 'application/json'
+    }
+    
+    # Format arguments for Turso API
+    formatted_args = []
+    if args:
+        for arg in args:
+            if arg is None:
+                formatted_args.append({"type": "null", "value": None})
+            elif isinstance(arg, int):
+                formatted_args.append({"type": "integer", "value": str(arg)})
+            elif isinstance(arg, float):
+                formatted_args.append({"type": "float", "value": arg})
+            elif isinstance(arg, str):
+                formatted_args.append({"type": "text", "value": arg})
+            else:
+                formatted_args.append({"type": "text", "value": str(arg)})
+    
+    payload = {
+        "requests": [
+            {
+                "type": "execute",
+                "stmt": {
+                    "sql": sql,
+                    "args": formatted_args
+                }
+            },
+            {"type": "close"}
+        ]
+    }
+    
+    print(f"[TURSO DEBUG] URL: {api_url}")
+    print(f"[TURSO DEBUG] SQL: {sql}")
+    print(f"[TURSO DEBUG] Args: {formatted_args}")
     
     try:
-        # Use sync client for serverless - simpler and more reliable
-        client = libsql_client.create_client_sync(
-            url=TURSO_DATABASE_URL,
-            auth_token=TURSO_AUTH_TOKEN
-        )
-        return client
-    except Exception as e:
-        print(f"[DB ERROR] Failed to create Turso client: {str(e)}")
-        return None
+        response = http_requests.post(api_url, json=payload, headers=headers, timeout=30)
+        print(f"[TURSO DEBUG] Response status: {response.status_code}")
+        
+        if response.status_code != 200:
+            print(f"[TURSO ERROR] Response: {response.text}")
+            raise Exception(f"Turso API error: {response.status_code} - {response.text}")
+        
+        data = response.json()
+        print(f"[TURSO DEBUG] Response data: {json.dumps(data, indent=2)[:500]}")
+        
+        # Parse the response
+        results = data.get('results', [])
+        if not results:
+            return {'columns': [], 'rows': [], 'last_insert_rowid': None, 'rows_affected': 0}
+        
+        result = results[0]
+        if result.get('type') == 'error':
+            error_msg = result.get('error', {}).get('message', 'Unknown error')
+            raise Exception(f"SQL error: {error_msg}")
+        
+        response_data = result.get('response', {}).get('result', {})
+        
+        # Extract columns
+        cols_data = response_data.get('cols', [])
+        columns = [col.get('name', f'col{i}') for i, col in enumerate(cols_data)]
+        
+        # Extract rows - Turso returns values in a nested format
+        rows_data = response_data.get('rows', [])
+        rows = []
+        for row in rows_data:
+            row_values = []
+            for cell in row:
+                if cell.get('type') == 'null':
+                    row_values.append(None)
+                elif cell.get('type') == 'integer':
+                    row_values.append(int(cell.get('value', 0)))
+                elif cell.get('type') == 'float':
+                    row_values.append(float(cell.get('value', 0)))
+                else:
+                    row_values.append(cell.get('value', ''))
+            rows.append(row_values)
+        
+        return {
+            'columns': columns,
+            'rows': rows,
+            'last_insert_rowid': response_data.get('last_insert_rowid'),
+            'rows_affected': response_data.get('affected_row_count', 0)
+        }
+        
+    except http_requests.exceptions.RequestException as e:
+        print(f"[TURSO ERROR] Request failed: {str(e)}")
+        raise Exception(f"Turso connection error: {str(e)}")
 
 
 def init_challenges_table():
     """Ensure the challenges table exists with the correct schema."""
-    client = get_db()
-    if not client:
-        print("[DB ERROR] Cannot init challenges table - no client")
-        return False
-    
     try:
-        client.execute('''
+        turso_execute('''
             CREATE TABLE IF NOT EXISTS challenges (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER,
@@ -107,43 +179,15 @@ def init_challenges_table():
     except Exception as e:
         print(f"[DB ERROR] Failed to init challenges table: {str(e)}")
         return False
-    finally:
-        try:
-            client.close()
-        except:
-            pass
 
 
 def query_db(query, args=(), one=False):
     """Execute a query and return results."""
-    client = get_db()
-    if not client:
-        return None if one else []
-    
     try:
-        print(f"[DB DEBUG] Query: {query}")
-        print(f"[DB DEBUG] Args: {args}")
+        result = turso_execute(query, args)
         
-        result = client.execute(query, args)
-        
-        print(f"[DB DEBUG] Result type: {type(result)}")
-        print(f"[DB DEBUG] Result dir: {[attr for attr in dir(result) if not attr.startswith('_')]}")
-        
-        # Handle libsql_client result format
-        rows_data = []
-        columns = []
-        
-        # Try different ways to access the result
-        if hasattr(result, 'rows'):
-            rows_data = result.rows
-            print(f"[DB DEBUG] rows_data from .rows: {rows_data}")
-        
-        if hasattr(result, 'columns'):
-            columns = result.columns
-            print(f"[DB DEBUG] columns: {columns}")
-        elif hasattr(result, 'column_names'):
-            columns = result.column_names
-            print(f"[DB DEBUG] columns from column_names: {columns}")
+        columns = result.get('columns', [])
+        rows_data = result.get('rows', [])
         
         if not rows_data:
             return None if one else []
@@ -153,84 +197,26 @@ def query_db(query, args=(), one=False):
         return rows[0] if one else rows
     except Exception as e:
         print(f"[DB ERROR] Query failed: {str(e)}")
-        print(f"[DB ERROR] Exception type: {type(e).__name__}")
         print(f"[DB ERROR] Query was: {query}")
         return None if one else []
-    finally:
-        try:
-            client.close()
-        except:
-            pass
 
 
 def execute_db(query, args=()):
     """Execute a write query and return last insert ID."""
-    client = get_db()
-    if not client:
-        print("[DB ERROR] Failed to get database client")
-        return None
-    
     try:
-        print(f"[DB DEBUG] Executing query: {query}")
+        print(f"[DB DEBUG] Executing: {query}")
         print(f"[DB DEBUG] With args: {args}")
-        print(f"[DB DEBUG] Args types: {[type(a).__name__ for a in args]}")
         
-        result = client.execute(query, args)
+        result = turso_execute(query, args)
         
-        print(f"[DB DEBUG] Result type: {type(result)}")
-        print(f"[DB DEBUG] Result attributes: {[attr for attr in dir(result) if not attr.startswith('_')]}")
+        row_id = result.get('last_insert_rowid')
+        print(f"[DB DEBUG] Last insert rowid: {row_id}")
         
-        # Handle different result formats from libsql_client
-        if result is None:
-            print("[DB DEBUG] Result is None, returning None")
-            return None
-        
-        # For libsql_client 0.3.x, check for last_insert_rowid or rowid attribute
-        row_id = None
-        
-        if hasattr(result, 'last_insert_rowid'):
-            row_id = result.last_insert_rowid
-            print(f"[DB DEBUG] Got last_insert_rowid: {row_id}")
-        elif hasattr(result, 'rowid'):
-            row_id = result.rowid
-            print(f"[DB DEBUG] Got rowid: {row_id}")
-        elif hasattr(result, 'rows_affected'):
-            # For inserts without RETURNING, we may need to query last_insert_rowid separately
-            rows_affected = result.rows_affected
-            print(f"[DB DEBUG] rows_affected: {rows_affected}")
-            # Try to get the last inserted ID with a separate query
-            try:
-                id_result = client.execute("SELECT last_insert_rowid() as id")
-                if hasattr(id_result, 'rows') and id_result.rows:
-                    row_id = id_result.rows[0][0]
-                    print(f"[DB DEBUG] Got last_insert_rowid from separate query: {row_id}")
-            except Exception as id_err:
-                print(f"[DB DEBUG] Could not get last_insert_rowid: {id_err}")
-                row_id = rows_affected  # Fallback to rows_affected
-        else:
-            # Try accessing as object attributes or dictionary
-            print(f"[DB DEBUG] Result repr: {repr(result)}")
-            try:
-                # Try direct dictionary access
-                if isinstance(result, dict):
-                    row_id = result.get('last_insert_rowid') or result.get('rowid') or result.get('id')
-            except:
-                pass
-        
-        print(f"[DB DEBUG] Final row_id: {row_id}")
         return row_id
-        
     except Exception as e:
         print(f"[DB ERROR] Execute failed: {str(e)}")
-        print(f"[DB ERROR] Exception type: {type(e).__name__}")
         print(f"[DB ERROR] Query was: {query}")
-        print(f"[DB ERROR] Args were: {args}")
         raise e
-    finally:
-        try:
-            client.close()
-        except:
-            pass
         try:
             client.close()
         except:
