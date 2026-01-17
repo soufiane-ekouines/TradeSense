@@ -15,9 +15,6 @@ requests==2.31.0
 # Environment variables
 python-dotenv==1.0.1
 
-# Yahoo Finance for market data and news
-yfinance==0.2.36
-
-# Web scraping for Moroccan data
+# Web scraping for news (lightweight)
 beautifulsoup4==4.12.3
 lxml==5.1.0
