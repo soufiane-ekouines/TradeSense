@@ -470,6 +470,35 @@ def get_plans():
 # Challenges Routes
 # ============================================
 
+@app.route('/api/challenges/active', methods=['GET'])
+@app.route('/challenges/active', methods=['GET'])
+@token_required
+def get_active_challenge():
+    """Get user's active challenge."""
+    challenge = query_db(
+        '''SELECT c.*, p.slug as plan_slug, p.price_dh, p.features_json
+           FROM challenges c 
+           JOIN plans p ON c.plan_id = p.id 
+           WHERE c.user_id = ? AND c.status = 'active'
+           ORDER BY c.created_at DESC
+           LIMIT 1''',
+        (request.user_id,),
+        one=True
+    )
+    
+    if not challenge:
+        return jsonify({'error': 'No active challenge found'}), 404
+    
+    # Parse features JSON if present
+    if challenge.get('features_json'):
+        try:
+            challenge['features'] = json.loads(challenge['features_json'])
+        except:
+            challenge['features'] = {}
+    
+    return jsonify({'challenge': challenge})
+
+
 @app.route('/api/challenges', methods=['GET'])
 @app.route('/challenges', methods=['GET'])
 @token_required
@@ -1043,6 +1072,83 @@ def get_market_quotes():
     ]
     
     return jsonify({'quotes': quotes})
+
+
+@app.route('/api/market/series', methods=['GET'])
+@app.route('/market/series', methods=['GET'])
+def get_market_series():
+    """Get OHLCV candlestick data for a symbol."""
+    symbol = request.args.get('symbol', 'BTC-USD')
+    interval = request.args.get('interval', '1h')
+    
+    import random
+    from datetime import datetime, timedelta
+    
+    # Generate simulated candlestick data
+    now = datetime.utcnow()
+    candles = []
+    
+    # Base prices for different symbols
+    base_prices = {
+        'BTC-USD': 43000,
+        'ETH-USD': 2500,
+        'GOLD': 2045,
+        'EUR-USD': 1.0875,
+        'IAM': 120,
+        'ATW': 450,
+        'BCP': 280,
+    }
+    
+    base_price = base_prices.get(symbol, 100)
+    price = base_price
+    
+    # Generate 100 candles going back in time
+    for i in range(100):
+        # Determine time delta based on interval
+        if interval == '1m':
+            time_delta = timedelta(minutes=i)
+        elif interval == '5m':
+            time_delta = timedelta(minutes=5*i)
+        elif interval == '15m':
+            time_delta = timedelta(minutes=15*i)
+        elif interval == '1h':
+            time_delta = timedelta(hours=i)
+        elif interval == '4h':
+            time_delta = timedelta(hours=4*i)
+        elif interval == '1d':
+            time_delta = timedelta(days=i)
+        else:
+            time_delta = timedelta(hours=i)
+        
+        candle_time = now - time_delta
+        
+        # Generate random OHLCV data
+        volatility = base_price * 0.02  # 2% volatility
+        open_price = price
+        close_price = price + random.uniform(-volatility, volatility)
+        high_price = max(open_price, close_price) + random.uniform(0, volatility * 0.5)
+        low_price = min(open_price, close_price) - random.uniform(0, volatility * 0.5)
+        volume = random.uniform(1000, 10000)
+        
+        candles.append({
+            'time': int(candle_time.timestamp()),
+            'open': round(open_price, 4),
+            'high': round(high_price, 4),
+            'low': round(low_price, 4),
+            'close': round(close_price, 4),
+            'volume': round(volume, 2)
+        })
+        
+        price = close_price
+    
+    # Reverse to have oldest first
+    candles.reverse()
+    
+    return jsonify({
+        'symbol': symbol,
+        'interval': interval,
+        'candles': candles
+    })
 
 
 # ============================================
