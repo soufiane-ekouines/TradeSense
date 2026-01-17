@@ -17,9 +17,24 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from functools import wraps
 import json
+import jwt
+from datetime import datetime, timedelta
 
-# Import libsql_client for Turso connection (sync version for serverless)
-import libsql_client
+# ============================================
+# Flask App - Create FIRST before anything else
+# ============================================
+
+app = Flask(__name__)
+app.config['SECRET_KEY'] = os.environ.get('JWT_SECRET', 'dev-secret-key-change-in-prod')
+
+# Enable CORS for all routes
+CORS(app, resources={
+    r"/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
 
 # ============================================
 # Turso Database Configuration
@@ -28,6 +43,14 @@ import libsql_client
 TURSO_DATABASE_URL = os.environ.get('TURSO_DATABASE_URL', '')
 TURSO_AUTH_TOKEN = os.environ.get('TURSO_AUTH_TOKEN', '')
 
+# Try to import libsql_client, but don't crash if it fails
+try:
+    import libsql_client
+    LIBSQL_AVAILABLE = True
+except ImportError as e:
+    print(f"[WARNING] libsql_client not available: {e}")
+    LIBSQL_AVAILABLE = False
+
 
 def get_db():
     """
@@ -35,6 +58,10 @@ def get_db():
     In serverless environments, we don't keep global connections open.
     Returns the client or None if not configured.
     """
+    if not LIBSQL_AVAILABLE:
+        print("[DB ERROR] libsql_client not available")
+        return None
+        
     if not TURSO_DATABASE_URL or not TURSO_AUTH_TOKEN:
         print("[DB ERROR] TURSO_DATABASE_URL or TURSO_AUTH_TOKEN not configured")
         return None
@@ -98,28 +125,8 @@ def execute_db(query, args=()):
 
 
 # ============================================
-# Flask App Configuration
-# ============================================
-
-app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('JWT_SECRET', 'dev-secret-key-change-in-prod')
-
-# Enable CORS for all routes
-CORS(app, resources={
-    r"/*": {
-        "origins": "*",
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"]
-    }
-})
-
-
-# ============================================
 # JWT Authentication Helper
 # ============================================
-
-import jwt
-from datetime import datetime, timedelta
 
 def create_token(user_id, role='user'):
     """Create a JWT token for a user."""
@@ -719,15 +726,18 @@ def server_error(e):
 
 @app.errorhandler(Exception)
 def handle_exception(e):
+    print(f"[ERROR] Unhandled exception: {str(e)}")
     return jsonify({'error': str(e)}), 500
 
 
 # ============================================
-# Vercel Serverless Handler
+# Vercel Serverless Handler Export
 # ============================================
 
-# This is required for Vercel to detect the Flask app
-# The variable name 'app' is used by Vercel's Python runtime
+# Ensure 'app' is properly exported for Vercel's Python runtime
+# This must be at the module level and named exactly 'app'
+app = app
 
-# Also define 'handler' for compatibility
-handler = app
+# Development server
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)
