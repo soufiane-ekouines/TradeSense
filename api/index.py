@@ -176,7 +176,24 @@ def token_required(f):
 # API Routes
 # ============================================
 
+# Routes are registered with both /api prefix and without
+# This handles Vercel's routing behavior which may or may not strip the prefix
+
+@app.route('/api/debug', methods=['GET'])
+@app.route('/debug', methods=['GET'])
+def debug_route():
+    """Debug endpoint to check routing."""
+    return jsonify({
+        'path': request.path,
+        'full_path': request.full_path,
+        'url': request.url,
+        'method': request.method,
+        'headers': dict(request.headers),
+        'message': 'Debug info from Flask'
+    })
+
 @app.route('/api/health', methods=['GET'])
+@app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint."""
     try:
@@ -201,6 +218,7 @@ def health_check():
 # ============================================
 
 @app.route('/api/auth/register', methods=['POST'])
+@app.route('/auth/register', methods=['POST'])
 def register():
     """Register a new user."""
     from werkzeug.security import generate_password_hash
@@ -235,6 +253,7 @@ def register():
 
 
 @app.route('/api/auth/login', methods=['POST'])
+@app.route('/auth/login', methods=['POST'])
 def login():
     """Login a user."""
     from werkzeug.security import check_password_hash
@@ -266,6 +285,7 @@ def login():
 
 
 @app.route('/api/auth/me', methods=['GET'])
+@app.route('/auth/me', methods=['GET'])
 @token_required
 def get_current_user():
     """Get current user info."""
@@ -283,6 +303,7 @@ def get_current_user():
 # ============================================
 
 @app.route('/api/plans', methods=['GET'])
+@app.route('/plans', methods=['GET'])
 def get_plans():
     """Get all available plans."""
     plans = query_db('SELECT * FROM plans ORDER BY price_dh ASC')
@@ -302,6 +323,7 @@ def get_plans():
 # ============================================
 
 @app.route('/api/challenges', methods=['GET'])
+@app.route('/challenges', methods=['GET'])
 @token_required
 def get_challenges():
     """Get user's challenges."""
@@ -318,6 +340,7 @@ def get_challenges():
 
 
 @app.route('/api/challenges/<int:challenge_id>', methods=['GET'])
+@app.route('/challenges/<int:challenge_id>', methods=['GET'])
 @token_required
 def get_challenge(challenge_id):
     """Get a specific challenge."""
@@ -344,6 +367,7 @@ def get_challenge(challenge_id):
 # ============================================
 
 @app.route('/api/trades/<int:challenge_id>', methods=['GET'])
+@app.route('/trades/<int:challenge_id>', methods=['GET'])
 @token_required
 def get_trades(challenge_id):
     """Get trades for a challenge."""
@@ -366,6 +390,7 @@ def get_trades(challenge_id):
 
 
 @app.route('/api/trades/<int:challenge_id>', methods=['POST'])
+@app.route('/trades/<int:challenge_id>', methods=['POST'])
 @token_required
 def create_trade(challenge_id):
     """Create a new trade."""
@@ -410,6 +435,7 @@ def create_trade(challenge_id):
 # ============================================
 
 @app.route('/api/leaderboard', methods=['GET'])
+@app.route('/leaderboard', methods=['GET'])
 def get_leaderboard():
     """Get the leaderboard."""
     leaderboard = query_db(
@@ -433,6 +459,7 @@ def get_leaderboard():
 # ============================================
 
 @app.route('/api/v1/community/feed', methods=['GET'])
+@app.route('/v1/community/feed', methods=['GET'])
 def get_community_feed():
     """Get community feed posts."""
     posts = query_db(
@@ -447,6 +474,7 @@ def get_community_feed():
 
 
 @app.route('/api/v1/community/posts', methods=['POST'])
+@app.route('/v1/community/posts', methods=['POST'])
 @token_required
 def create_post():
     """Create a new community post."""
@@ -472,6 +500,7 @@ def create_post():
 # ============================================
 
 @app.route('/api/market/quotes', methods=['GET'])
+@app.route('/market/quotes', methods=['GET'])
 def get_market_quotes():
     """Get market quotes for popular symbols."""
     # This would typically integrate with a real market data API
@@ -520,6 +549,7 @@ def create_challenge_for_user(user_id, plan_id, start_balance):
 
 
 @app.route('/api/checkout/crypto', methods=['POST'])
+@app.route('/checkout/crypto', methods=['POST'])
 @token_required
 def pay_crypto():
     """Process crypto payment."""
@@ -565,6 +595,7 @@ def pay_crypto():
 
 
 @app.route('/api/checkout/cmi', methods=['POST'])
+@app.route('/checkout/cmi', methods=['POST'])
 @token_required
 def pay_cmi():
     """Process CMI card payment."""
@@ -607,6 +638,7 @@ def pay_cmi():
 
 
 @app.route('/api/checkout/paypal', methods=['POST'])
+@app.route('/checkout/paypal', methods=['POST'])
 @token_required
 def pay_paypal():
     """Process PayPal payment."""
@@ -655,11 +687,15 @@ def pay_paypal():
 
 @app.errorhandler(404)
 def not_found(e):
-    return jsonify({'error': 'Resource not found'}), 404
+    return jsonify({
+        'error': 'Resource not found',
+        'requested_path': request.path,
+        'method': request.method
+    }), 404
 
 @app.errorhandler(500)
 def server_error(e):
-    return jsonify({'error': 'Internal server error'}), 500
+    return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
 
 @app.errorhandler(Exception)
 def handle_exception(e):
@@ -672,3 +708,6 @@ def handle_exception(e):
 
 # This is required for Vercel to detect the Flask app
 # The variable name 'app' is used by Vercel's Python runtime
+
+# Also define 'handler' for compatibility
+handler = app
