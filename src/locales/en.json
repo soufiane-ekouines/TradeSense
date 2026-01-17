@@ -1,0 +1,104 @@
+{
+    "common": {
+        "loading": "Loading...",
+        "error": "An error occurred",
+        "save": "Save",
+        "cancel": "Cancel"
+    },
+    "navbar": {
+        "home": "Home",
+        "dashboard": "Dashboard",
+        "leaderboard": "Leaderboard",
+        "news": "News",
+        "community": "Community",
+        "login": "Login",
+        "register": "Get Funded",
+        "logout": "Logout"
+    },
+    "hero": {
+        "badge": "Now accepting new traders for 2026",
+        "title_1": "Trade with Intelligence.",
+        "title_2": "Get Funded.",
+        "subtitle": "The next-generation Prop Trading platform powered by AI and real-time data.",
+        "cta_primary": "Start Challenge",
+        "cta_secondary": "Watch Demo"
+    },
+    "features": {
+        "badge_ai": "Artificial Intelligence",
+        "title_ai": "Don't Trade Alone. AI is Your Co-pilot.",
+        "desc_ai": "Our algorithms analyze millions of data points per second: news sentiment, inter-market correlations, and volume anomalies. Receive institutional insights directly on your dashboard.",
+        "badge_data": "Real-Time Data",
+        "title_data": "Professional Data, Zero Latency.",
+        "desc_data": "Access raw data feeds from Polygon.io and Databento, plus exclusive scrapers. No delays, no artificial slippage. Just the market truth, instantly."
+    },
+    "how_it_works": {
+        "title_main": "Your Path to",
+        "title_accent": "Capital",
+        "subtitle": "Our process is simple, transparent and designed to identify real talent.",
+        "step1_title": "Register & Choose",
+        "step1_desc": "Select the account size that matches your ambition and configure your trading preferences.",
+        "step2_title": "Prove Your Worth",
+        "step2_desc": "Trade in our professional simulated environment respects rigorous risk management objectives.",
+        "step3_title": "Funded Account",
+        "step3_desc": "Once the target is reached, receive a live account funded by TradeSense and keep up to 90% of your profits."
+    },
+    "pricing": {
+        "title_main": "Choose Your",
+        "title_accent": "Challenge",
+        "subtitle": "Select the account size that fits your strategy. No recurring fees.",
+        "popular": "Most Popular",
+        "balance_label": "Account Balance",
+        "target": "Profit Target",
+        "daily_loss": "Daily Loss",
+        "max_loss": "Max Loss",
+        "leverage": "Leverage",
+        "one_time": "/ one-time",
+        "cta": "Start Challenge"
+    },
+    "founder": {
+        "role": "Founder & Lead Architect",
+        "bio": "\"Passionate about the fusion of market finance and cutting-edge technologies. I designed TradeSense AI to democratize access to institutional trading tools and offer a fair chance to global talent.\"",
+        "stat_exp": "Years Exp.",
+        "stat_dedication": "Dedication",
+        "stat_vision": "Vision"
+    },
+    "footer": {
+        "brand_desc": "The first AI-powered Prop Trading platform in Morocco.",
+        "col_platform": "Platform",
+        "challenges": "Challenges",
+        "pricing": "Pricing",
+        "ai_dashboard": "AI Dashboard",
+        "leaderboard": "Leaderboard",
+        "col_company": "Company",
+        "about": "About",
+        "careers": "Careers",
+        "blog": "Blog",
+        "contact": "Contact",
+        "col_legal": "Legal",
+        "terms": "Terms & Conditions",
+        "privacy": "Privacy Policy",
+        "risk": "Risk Disclosure",
+        "copyright": "© 2026 TradeSense AI. All rights reserved.",
+        "country": "Morocco"
+    },
+    "simulator": {
+        "title": "AI Strategy Simulator",
+        "subtitle": "Adjust market parameters to see TradeSense's real-time calculations.",
+        "trend_label": "Technical Trend",
+        "sentiment_label": "Market Sentiment",
+        "volatility_label": "Volatility",
+        "win_rate_label": "Probability of Gain",
+        "verdict_high": "✅ STRATEGY: AGGRESSIVE BUY. Markets are aligned. Consider increasing position size.",
+        "verdict_med": "⚠️ STRATEGY: WAIT. High uncertainty. Scalping only recommended.",
+        "verdict_low": "⛔ STRATEGY: DO NOT TRADE. High liquidation risk. Sit on hands.",
+        "tooltip_trend": "The AI analyzes 50+ technical indicators to identify the prevailing trend.",
+        "tooltip_sentiment": "Real-time NLP analysis of global news feeds and social sentiment.",
+        "tooltip_volatility": "Measures the intensity of price movements and potential slippage.",
+        "trend_bearish": "Strong Bearish",
+        "trend_bullish": "Strong Bullish",
+        "sentiment_neg": "Negative News",
+        "sentiment_pos": "Positive Hype",
+        "vol_low": "Low",
+        "vol_extreme": "Extreme"
+    }
+}

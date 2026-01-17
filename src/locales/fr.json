@@ -1,0 +1,104 @@
+{
+    "common": {
+        "loading": "Chargement...",
+        "error": "Une erreur est survenue",
+        "save": "Enregistrer",
+        "cancel": "Annuler"
+    },
+    "navbar": {
+        "home": "Accueil",
+        "dashboard": "Dashboard",
+        "leaderboard": "Leaderboard",
+        "news": "Actualités",
+        "community": "Communauté",
+        "login": "Connexion",
+        "register": "Devenir Moolé",
+        "logout": "Déconnexion"
+    },
+    "hero": {
+        "badge": "Acceptons maintenant de nouveaux traders pour 2026",
+        "title_1": "Tradez avec l'Intelligence.",
+        "title_2": "Soyez Financé.",
+        "subtitle": "La plateforme de Prop Trading nouvelle génération alimentée par l'IA et des données en temps réel.",
+        "cta_primary": "Commencer le Challenge",
+        "cta_secondary": "Voir la Démo"
+    },
+    "features": {
+        "badge_ai": "Intelligence Artificielle",
+        "title_ai": "Ne Tradez Plus Seul. L'IA est Votre Copilote.",
+        "desc_ai": "Nos algorithmes analysent des millions de points de données par seconde : sentiment des news, corrélations inter-marchés, et anomalies de volume. Recevez des insights institutionnels directement sur votre dashboard.",
+        "badge_data": "Données Temps Réel",
+        "title_data": "Données Professionnelles, Zéro Latence.",
+        "desc_data": "Accédez aux flux de données bruts de Polygon.io et Databento, ainsi qu'à un scraper exclusif. Pas de retard, pas de glissement artificiel. Juste la vérité du marché, instantanément."
+    },
+    "how_it_works": {
+        "title_main": "Votre Parcours vers le",
+        "title_accent": "Capital",
+        "subtitle": "Notre processus est simple, transparent et conçu pour identifier les vrais talents.",
+        "step1_title": "Inscription & Choix",
+        "step1_desc": "Sélectionnez la taille de compte qui correspond à votre ambition et configurez vos préférences de trading personnalisé.",
+        "step2_title": "Prouvez Votre Valeur",
+        "step2_desc": "Tradez dans notre environnement simulé professionnel en respectant les objectifs de gestion des risques rigoureux.",
+        "step3_title": "Compte Financé",
+        "step3_desc": "Une fois l'objectif atteint, recevez un compte réel financé par TradeSense et gardez jusqu'à 90% de vos profits."
+    },
+    "pricing": {
+        "title_main": "Choisissez Votre",
+        "title_accent": "Challenge",
+        "subtitle": "Sélectionnez la taille de compte qui correspond à votre stratégie. Pas de frais récurrents.",
+        "popular": "Plus Populaire",
+        "balance_label": "Balance du Compte",
+        "target": "Objectif de Profit",
+        "daily_loss": "Perte Quotidienne",
+        "max_loss": "Perte Maximale",
+        "leverage": "Levier",
+        "one_time": "/ une fois",
+        "cta": "Commencer le Challenge"
+    },
+    "founder": {
+        "role": "Fondateur & Architecte Principal",
+        "bio": "\"Passionné par la fusion entre la finance de marché et les technologies de pointe. J'ai conçu TradeSense AI pour démocratiser l'accès aux outils de trading institutionnels et offrir une chance équitable aux talents mondiaux.\"",
+        "stat_exp": "Années d'Exp.",
+        "stat_dedication": "Dévouement",
+        "stat_vision": "Vision"
+    },
+    "footer": {
+        "brand_desc": "La première plateforme de Prop Trading au Maroc alimentée par l'intelligence artificielle.",
+        "col_platform": "Plateforme",
+        "challenges": "Challenges",
+        "pricing": "Pricing",
+        "ai_dashboard": "Dashboard IA",
+        "leaderboard": "Leaderboard",
+        "col_company": "Entreprise",
+        "about": "À propos",
+        "careers": "Carrières",
+        "blog": "Blog",
+        "contact": "Contact",
+        "col_legal": "Légal",
+        "terms": "Termes & Conditions",
+        "privacy": "Politique de Confidentialité",
+        "risk": "Divulgation des Risques",
+        "copyright": "© 2026 TradeSense AI. Tous droits réservés.",
+        "country": "Maroc"
+    },
+    "simulator": {
+        "title": "Simulateur de Stratégie IA",
+        "subtitle": "Ajustez les paramètres du marché pour voir les calculs de TradeSense en temps réel.",
+        "trend_label": "Tendance Technique",
+        "sentiment_label": "Sentiment du Marché",
+        "volatility_label": "Volatilité",
+        "win_rate_label": "Probabilité de Gain",
+        "verdict_high": "✅ STRATÉGIE : AGGRESSIVE BUY. Le marché est aligné. Augmentez la taille de lot.",
+        "verdict_med": "⚠️ STRATÉGIE : ATTENTE. Trop d'incertitude. Scalping uniquement.",
+        "verdict_low": "⛔ STRATÉGIE : DO NOT TRADE. Risque de liquidation élevé.",
+        "tooltip_trend": "L'IA analyse 50 indicateurs pour déterminer la tendance.",
+        "tooltip_sentiment": "Analyse NLP en temps réel des flux d'actualités mondiaux.",
+        "tooltip_volatility": "Mesure l'intensité des mouvements de prix.",
+        "trend_bearish": "Fort Baissier",
+        "trend_bullish": "Fort Haussier",
+        "sentiment_neg": "News Négatives",
+        "sentiment_pos": "Hype Positive",
+        "vol_low": "Basse",
+        "vol_extreme": "Extrême"
+    }
+}
