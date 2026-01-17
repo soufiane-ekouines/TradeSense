@@ -1,5 +1,18 @@
 {
   "version": 2,
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python@4.3.1"
+    },
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build@2.5.26",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
@@ -12,6 +25,7 @@
   ],
   "functions": {
     "api/index.py": {
+      "runtime": "python@3.9",
       "maxDuration": 30
     }
   }
