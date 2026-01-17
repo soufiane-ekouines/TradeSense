@@ -42,14 +42,33 @@ const CommunityHub = () => {
     const [availableUsers, setAvailableUsers] = useState([]);
     const [isDMLoading, setIsDMLoading] = useState(false);
     const [isSendingDM, setIsSendingDM] = useState(false);
+    const [error, setError] = useState(null);
+    const mountedRef = useRef(true);
 
     useEffect(() => {
+        mountedRef.current = true;
+        
         const loadData = async () => {
             setIsLoading(true);
-            await Promise.all([fetchFeed(), fetchTopStrategies()]);
-            setIsLoading(false);
+            setError(null);
+            try {
+                await Promise.all([fetchFeed(), fetchTopStrategies()]);
+            } catch (err) {
+                console.error('Error loading community data:', err);
+                if (mountedRef.current) {
+                    setError('Failed to load community data');
+                }
+            } finally {
+                if (mountedRef.current) {
+                    setIsLoading(false);
+                }
+            }
         };
         loadData();
+        
+        return () => {
+            mountedRef.current = false;
+        };
     }, []);
 
     // Cleanup audio URL on unmount
@@ -64,24 +83,30 @@ const CommunityHub = () => {
     const fetchFeed = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get(`${API_URL}/v1/${TENANT}/community/nexus`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setPosts(response.data.posts || []);
+            const headers = token ? { Authorization: `Bearer ${token}` } : {};
+            const response = await axios.get(`${API_URL}/v1/${TENANT}/community/nexus`, { headers });
+            console.log('Feed response:', response.data);
+            if (mountedRef.current) {
+                setPosts(response.data?.posts || []);
+            }
         } catch (error) {
-            console.error("Error fetching feed:", error);
+            console.error("Error fetching feed:", error.response?.data || error.message);
+            // Don't clear posts on error, keep existing data
         }
     };
 
     const fetchTopStrategies = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get(`${API_URL}/v1/${TENANT}/community/strategies/top`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setTopStrategies(response.data || []);
+            const headers = token ? { Authorization: `Bearer ${token}` } : {};
+            const response = await axios.get(`${API_URL}/v1/${TENANT}/community/strategies/top`, { headers });
+            console.log('Strategies response:', response.data);
+            if (mountedRef.current) {
+                setTopStrategies(Array.isArray(response.data) ? response.data : []);
+            }
         } catch (error) {
-            console.error("Error fetching top strategies:", error);
+            console.error("Error fetching top strategies:", error.response?.data || error.message);
+            // Don't clear strategies on error, keep existing data
         }
     };
 
@@ -469,6 +494,16 @@ const CommunityHub = () => {
                                 <div className="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
                                 <p className="text-slate-400">{isRTL ? 'جاري التحميل...' : 'Loading community feed...'}</p>
                             </div>
+                        ) : error ? (
+                            <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
+                                <div className="w-20 h-20 rounded-full bg-red-500/10 flex items-center justify-center">
+                                    <X size={32} className="text-red-500" />
+                                </div>
+                                <h3 className="text-xl font-bold text-slate-300">{error}</h3>
+                                <Button onClick={() => { fetchFeed(); fetchTopStrategies(); }} variant="outline">
+                                    {isRTL ? 'إعادة المحاولة' : 'Retry'}
+                                </Button>
+                            </div>
                         ) : posts.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
                                 <div className="w-20 h-20 rounded-full bg-blue-500/10 flex items-center justify-center">
@@ -488,18 +523,18 @@ const CommunityHub = () => {
                                     className={`flex gap-4 group ${isRTL ? 'flex-row-reverse' : ''}`}
                                 >
                                     <img
-                                        src={post.author.avatar_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${post.author.name}`}
+                                        src={post.author?.avatar_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${post.author?.name || 'user'}`}
                                         className="w-10 h-10 rounded-xl bg-slate-800 border border-white/5 shadow-lg"
                                         alt="avatar"
                                     />
                                     <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
                                         <div className={`flex items-center gap-2 mb-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                                            <span className="font-bold hover:underline cursor-pointer">{post.author.name}</span>
-                                            {post.author.role === 'admin' && (
+                                            <span className="font-bold hover:underline cursor-pointer">{post.author?.name || 'Anonymous'}</span>
+                                            {post.author?.role === 'admin' && (
                                                 <ShieldCheck size={14} className="text-blue-400" />
                                             )}
                                             <span className="text-xs text-slate-500">
-                                                {new Date(post.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                {post.created_at ? new Date(post.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                                             </span>
                                         </div>
 
@@ -706,7 +741,7 @@ const CommunityHub = () => {
                                         </div>
                                         <div className="flex justify-between items-center mb-1">
                                             <span className="font-bold text-xs uppercase tracking-widest text-blue-400">{strat.symbol}</span>
-                                            <span className="text-[10px] text-slate-500">by {strat.author}</span>
+                                            <span className="text-[10px] text-slate-500">by {strat.author?.name || strat.author || 'Anonymous'}</span>
                                         </div>
                                         <div className="flex items-end justify-between">
                                             <div className="text-2xl font-mono font-bold">{strat.win_rate || 0}%</div>

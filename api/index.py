@@ -485,6 +485,15 @@ def get_leaderboard():
 # Community Routes
 # ============================================
 
+@app.after_request
+def add_cache_headers(response):
+    """Add headers to prevent caching of API responses."""
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+
 @app.route('/api/v1/<tenant>/community/nexus', methods=['GET'])
 @app.route('/v1/<tenant>/community/nexus', methods=['GET'])
 def get_community_nexus(tenant):
