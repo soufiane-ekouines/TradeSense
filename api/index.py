@@ -719,17 +719,49 @@ ACADEMY_COURSES = [
         'title': 'Trading Fundamentals',
         'description': 'Master the basics of trading - from market structure to order types. Perfect for beginners.',
         'difficulty': 'Beginner',
+        'duration_minutes': 270,
         'duration': '4h 30m',
-        'lessons': 12,
         'xp_reward': 500,
-        'thumbnail': '/api/static/courses/fundamentals.jpg',
+        'thumbnail_url': 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800',
         'instructor': 'Sarah Johnson',
         'rating': 4.8,
         'students': 2547,
+        'is_premium': False,
+        'user_progress': 0,
         'modules': [
-            {'id': 1, 'title': 'Market Basics', 'lessons': 4, 'duration': '1h 30m'},
-            {'id': 2, 'title': 'Order Types', 'lessons': 4, 'duration': '1h 30m'},
-            {'id': 3, 'title': 'Risk Management', 'lessons': 4, 'duration': '1h 30m'}
+            {
+                'id': 1, 
+                'title': 'Market Basics', 
+                'duration': '1h 30m',
+                'lessons': [
+                    {'id': 101, 'title': 'Introduction to Financial Markets', 'duration': '15m', 'completed': False, 'type': 'video'},
+                    {'id': 102, 'title': 'Understanding Market Structure', 'duration': '20m', 'completed': False, 'type': 'video'},
+                    {'id': 103, 'title': 'Types of Financial Instruments', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 104, 'title': 'Quiz: Market Basics', 'duration': '10m', 'completed': False, 'type': 'quiz'}
+                ]
+            },
+            {
+                'id': 2, 
+                'title': 'Order Types', 
+                'duration': '1h 30m',
+                'lessons': [
+                    {'id': 105, 'title': 'Market Orders vs Limit Orders', 'duration': '20m', 'completed': False, 'type': 'video'},
+                    {'id': 106, 'title': 'Stop Loss & Take Profit', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 107, 'title': 'Advanced Order Types', 'duration': '20m', 'completed': False, 'type': 'video'},
+                    {'id': 108, 'title': 'Practice: Place Your First Trade', 'duration': '15m', 'completed': False, 'type': 'practice'}
+                ]
+            },
+            {
+                'id': 3, 
+                'title': 'Risk Management', 
+                'duration': '1h 30m',
+                'lessons': [
+                    {'id': 109, 'title': 'Position Sizing Fundamentals', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 110, 'title': 'Risk-Reward Ratios', 'duration': '20m', 'completed': False, 'type': 'video'},
+                    {'id': 111, 'title': 'Building a Risk Management Plan', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 112, 'title': 'Final Quiz', 'duration': '15m', 'completed': False, 'type': 'quiz'}
+                ]
+            }
         ]
     },
     {
@@ -737,17 +769,53 @@ ACADEMY_COURSES = [
         'title': 'Technical Analysis Pro',
         'description': 'Advanced chart patterns, indicators, and price action strategies used by professionals.',
         'difficulty': 'Pro',
+        'duration_minutes': 495,
         'duration': '8h 15m',
-        'lessons': 24,
         'xp_reward': 1200,
-        'thumbnail': '/api/static/courses/technical.jpg',
+        'thumbnail_url': 'https://images.unsplash.com/photo-1642790106117-e829e14a795f?w=800',
         'instructor': 'Michael Chen',
         'rating': 4.9,
         'students': 1823,
+        'is_premium': True,
+        'user_progress': 0,
         'modules': [
-            {'id': 1, 'title': 'Chart Patterns', 'lessons': 8, 'duration': '3h'},
-            {'id': 2, 'title': 'Indicators Mastery', 'lessons': 8, 'duration': '2h 30m'},
-            {'id': 3, 'title': 'Price Action', 'lessons': 8, 'duration': '2h 45m'}
+            {
+                'id': 4, 
+                'title': 'Chart Patterns', 
+                'duration': '3h',
+                'lessons': [
+                    {'id': 201, 'title': 'Support & Resistance Levels', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 202, 'title': 'Trend Lines & Channels', 'duration': '30m', 'completed': False, 'type': 'video'},
+                    {'id': 203, 'title': 'Head & Shoulders Pattern', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 204, 'title': 'Double Tops & Bottoms', 'duration': '20m', 'completed': False, 'type': 'video'},
+                    {'id': 205, 'title': 'Triangles & Wedges', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 206, 'title': 'Pattern Recognition Practice', 'duration': '20m', 'completed': False, 'type': 'practice'}
+                ]
+            },
+            {
+                'id': 5, 
+                'title': 'Indicators Mastery', 
+                'duration': '2h 30m',
+                'lessons': [
+                    {'id': 207, 'title': 'Moving Averages Deep Dive', 'duration': '30m', 'completed': False, 'type': 'video'},
+                    {'id': 208, 'title': 'RSI & Momentum Indicators', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 209, 'title': 'MACD Strategies', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 210, 'title': 'Bollinger Bands', 'duration': '20m', 'completed': False, 'type': 'video'},
+                    {'id': 211, 'title': 'Combining Multiple Indicators', 'duration': '25m', 'completed': False, 'type': 'video'}
+                ]
+            },
+            {
+                'id': 6, 
+                'title': 'Price Action', 
+                'duration': '2h 45m',
+                'lessons': [
+                    {'id': 212, 'title': 'Candlestick Patterns', 'duration': '30m', 'completed': False, 'type': 'video'},
+                    {'id': 213, 'title': 'Price Action Trading Strategies', 'duration': '35m', 'completed': False, 'type': 'video'},
+                    {'id': 214, 'title': 'Market Structure Analysis', 'duration': '30m', 'completed': False, 'type': 'video'},
+                    {'id': 215, 'title': 'Live Chart Analysis', 'duration': '30m', 'completed': False, 'type': 'practice'},
+                    {'id': 216, 'title': 'Final Assessment', 'duration': '20m', 'completed': False, 'type': 'quiz'}
+                ]
+            }
         ]
     },
     {
@@ -755,17 +823,49 @@ ACADEMY_COURSES = [
         'title': 'Forex Mastery',
         'description': 'Complete guide to forex trading - pairs, sessions, and advanced strategies.',
         'difficulty': 'Pro',
+        'duration_minutes': 405,
         'duration': '6h 45m',
-        'lessons': 18,
         'xp_reward': 1000,
-        'thumbnail': '/api/static/courses/forex.jpg',
+        'thumbnail_url': 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=800',
         'instructor': 'Ahmed Mansour',
         'rating': 4.7,
         'students': 1456,
+        'is_premium': True,
+        'user_progress': 0,
         'modules': [
-            {'id': 1, 'title': 'Forex Basics', 'lessons': 6, 'duration': '2h'},
-            {'id': 2, 'title': 'Session Trading', 'lessons': 6, 'duration': '2h 30m'},
-            {'id': 3, 'title': 'Advanced Strategies', 'lessons': 6, 'duration': '2h 15m'}
+            {
+                'id': 7, 
+                'title': 'Forex Basics', 
+                'duration': '2h',
+                'lessons': [
+                    {'id': 301, 'title': 'Introduction to Forex', 'duration': '20m', 'completed': False, 'type': 'video'},
+                    {'id': 302, 'title': 'Currency Pairs Explained', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 303, 'title': 'Pips, Lots & Leverage', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 304, 'title': 'Reading Forex Quotes', 'duration': '20m', 'completed': False, 'type': 'video'}
+                ]
+            },
+            {
+                'id': 8, 
+                'title': 'Session Trading', 
+                'duration': '2h 30m',
+                'lessons': [
+                    {'id': 305, 'title': 'Understanding Trading Sessions', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 306, 'title': 'London Session Strategies', 'duration': '30m', 'completed': False, 'type': 'video'},
+                    {'id': 307, 'title': 'New York Session Strategies', 'duration': '30m', 'completed': False, 'type': 'video'},
+                    {'id': 308, 'title': 'Session Overlap Trading', 'duration': '25m', 'completed': False, 'type': 'video'}
+                ]
+            },
+            {
+                'id': 9, 
+                'title': 'Advanced Strategies', 
+                'duration': '2h 15m',
+                'lessons': [
+                    {'id': 309, 'title': 'Carry Trade Strategy', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 310, 'title': 'News Trading', 'duration': '30m', 'completed': False, 'type': 'video'},
+                    {'id': 311, 'title': 'Correlation Trading', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 312, 'title': 'Final Quiz', 'duration': '15m', 'completed': False, 'type': 'quiz'}
+                ]
+            }
         ]
     },
     {
@@ -773,17 +873,55 @@ ACADEMY_COURSES = [
         'title': 'Algorithmic Trading',
         'description': 'Build and backtest your own trading algorithms. Python & automation focus.',
         'difficulty': 'Elite',
+        'duration_minutes': 750,
         'duration': '12h 30m',
-        'lessons': 32,
         'xp_reward': 2000,
-        'thumbnail': '/api/static/courses/algo.jpg',
+        'thumbnail_url': 'https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=800',
         'instructor': 'Dr. Emily Watson',
         'rating': 4.9,
         'students': 892,
+        'is_premium': True,
+        'user_progress': 0,
         'modules': [
-            {'id': 1, 'title': 'Python for Trading', 'lessons': 10, 'duration': '4h'},
-            {'id': 2, 'title': 'Strategy Development', 'lessons': 12, 'duration': '5h'},
-            {'id': 3, 'title': 'Backtesting & Deployment', 'lessons': 10, 'duration': '3h 30m'}
+            {
+                'id': 10, 
+                'title': 'Python for Trading', 
+                'duration': '4h',
+                'lessons': [
+                    {'id': 401, 'title': 'Python Basics for Traders', 'duration': '30m', 'completed': False, 'type': 'video'},
+                    {'id': 402, 'title': 'Pandas for Financial Data', 'duration': '35m', 'completed': False, 'type': 'video'},
+                    {'id': 403, 'title': 'NumPy for Calculations', 'duration': '30m', 'completed': False, 'type': 'video'},
+                    {'id': 404, 'title': 'Data Visualization', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 405, 'title': 'API Integration', 'duration': '35m', 'completed': False, 'type': 'video'},
+                    {'id': 406, 'title': 'Coding Practice', 'duration': '30m', 'completed': False, 'type': 'practice'}
+                ]
+            },
+            {
+                'id': 11, 
+                'title': 'Strategy Development', 
+                'duration': '5h',
+                'lessons': [
+                    {'id': 407, 'title': 'Building Your First Algorithm', 'duration': '40m', 'completed': False, 'type': 'video'},
+                    {'id': 408, 'title': 'Signal Generation', 'duration': '35m', 'completed': False, 'type': 'video'},
+                    {'id': 409, 'title': 'Position Management Logic', 'duration': '35m', 'completed': False, 'type': 'video'},
+                    {'id': 410, 'title': 'Risk Controls in Code', 'duration': '30m', 'completed': False, 'type': 'video'},
+                    {'id': 411, 'title': 'Strategy Optimization', 'duration': '40m', 'completed': False, 'type': 'video'},
+                    {'id': 412, 'title': 'Build Your Strategy', 'duration': '45m', 'completed': False, 'type': 'practice'}
+                ]
+            },
+            {
+                'id': 12, 
+                'title': 'Backtesting & Deployment', 
+                'duration': '3h 30m',
+                'lessons': [
+                    {'id': 413, 'title': 'Backtesting Fundamentals', 'duration': '30m', 'completed': False, 'type': 'video'},
+                    {'id': 414, 'title': 'Avoiding Overfitting', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 415, 'title': 'Walk-Forward Analysis', 'duration': '30m', 'completed': False, 'type': 'video'},
+                    {'id': 416, 'title': 'Paper Trading Setup', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 417, 'title': 'Going Live', 'duration': '30m', 'completed': False, 'type': 'video'},
+                    {'id': 418, 'title': 'Final Project', 'duration': '30m', 'completed': False, 'type': 'practice'}
+                ]
+            }
         ]
     },
     {
@@ -791,17 +929,49 @@ ACADEMY_COURSES = [
         'title': 'Crypto Trading Essentials',
         'description': 'Navigate the crypto markets with confidence. DeFi, NFTs, and more.',
         'difficulty': 'Pro',
+        'duration_minutes': 320,
         'duration': '5h 20m',
-        'lessons': 15,
         'xp_reward': 800,
-        'thumbnail': '/api/static/courses/crypto.jpg',
+        'thumbnail_url': 'https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=800',
         'instructor': 'Jake Rivera',
         'rating': 4.6,
         'students': 3201,
+        'is_premium': False,
+        'user_progress': 0,
         'modules': [
-            {'id': 1, 'title': 'Crypto Fundamentals', 'lessons': 5, 'duration': '1h 45m'},
-            {'id': 2, 'title': 'DeFi & NFTs', 'lessons': 5, 'duration': '1h 50m'},
-            {'id': 3, 'title': 'Advanced Crypto Trading', 'lessons': 5, 'duration': '1h 45m'}
+            {
+                'id': 13, 
+                'title': 'Crypto Fundamentals', 
+                'duration': '1h 45m',
+                'lessons': [
+                    {'id': 501, 'title': 'Blockchain Basics', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 502, 'title': 'Understanding Bitcoin', 'duration': '20m', 'completed': False, 'type': 'video'},
+                    {'id': 503, 'title': 'Altcoins & Tokens', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 504, 'title': 'Crypto Wallets & Security', 'duration': '20m', 'completed': False, 'type': 'video'}
+                ]
+            },
+            {
+                'id': 14, 
+                'title': 'DeFi & NFTs', 
+                'duration': '1h 50m',
+                'lessons': [
+                    {'id': 505, 'title': 'Introduction to DeFi', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 506, 'title': 'Yield Farming & Staking', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 507, 'title': 'NFT Markets', 'duration': '20m', 'completed': False, 'type': 'video'},
+                    {'id': 508, 'title': 'DeFi Risks', 'duration': '20m', 'completed': False, 'type': 'video'}
+                ]
+            },
+            {
+                'id': 15, 
+                'title': 'Advanced Crypto Trading', 
+                'duration': '1h 45m',
+                'lessons': [
+                    {'id': 509, 'title': 'Crypto Technical Analysis', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 510, 'title': 'Market Cycles', 'duration': '20m', 'completed': False, 'type': 'video'},
+                    {'id': 511, 'title': 'Trading Crypto Volatility', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 512, 'title': 'Final Quiz', 'duration': '15m', 'completed': False, 'type': 'quiz'}
+                ]
+            }
         ]
     },
     {
@@ -809,17 +979,47 @@ ACADEMY_COURSES = [
         'title': 'Risk & Psychology',
         'description': 'Master your mind and money. Essential for consistent profitability.',
         'difficulty': 'Beginner',
+        'duration_minutes': 225,
         'duration': '3h 45m',
-        'lessons': 10,
         'xp_reward': 600,
-        'thumbnail': '/api/static/courses/psychology.jpg',
+        'thumbnail_url': 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800',
         'instructor': 'Dr. Lisa Park',
         'rating': 4.8,
         'students': 4102,
+        'is_premium': False,
+        'user_progress': 0,
         'modules': [
-            {'id': 1, 'title': 'Trading Psychology', 'lessons': 4, 'duration': '1h 30m'},
-            {'id': 2, 'title': 'Risk Management', 'lessons': 3, 'duration': '1h 15m'},
-            {'id': 3, 'title': 'Discipline & Routine', 'lessons': 3, 'duration': '1h'}
+            {
+                'id': 16, 
+                'title': 'Trading Psychology', 
+                'duration': '1h 30m',
+                'lessons': [
+                    {'id': 601, 'title': 'The Trader Mindset', 'duration': '20m', 'completed': False, 'type': 'video'},
+                    {'id': 602, 'title': 'Emotions in Trading', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 603, 'title': 'Fear & Greed', 'duration': '20m', 'completed': False, 'type': 'video'},
+                    {'id': 604, 'title': 'Developing Discipline', 'duration': '25m', 'completed': False, 'type': 'video'}
+                ]
+            },
+            {
+                'id': 17, 
+                'title': 'Risk Management', 
+                'duration': '1h 15m',
+                'lessons': [
+                    {'id': 605, 'title': 'Capital Preservation', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 606, 'title': 'Drawdown Management', 'duration': '25m', 'completed': False, 'type': 'video'},
+                    {'id': 607, 'title': 'Portfolio Risk', 'duration': '25m', 'completed': False, 'type': 'video'}
+                ]
+            },
+            {
+                'id': 18, 
+                'title': 'Discipline & Routine', 
+                'duration': '1h',
+                'lessons': [
+                    {'id': 608, 'title': 'Building a Trading Routine', 'duration': '20m', 'completed': False, 'type': 'video'},
+                    {'id': 609, 'title': 'Journaling Best Practices', 'duration': '20m', 'completed': False, 'type': 'video'},
+                    {'id': 610, 'title': 'Long-term Success Habits', 'duration': '20m', 'completed': False, 'type': 'video'}
+                ]
+            }
         ]
     }
 ]
