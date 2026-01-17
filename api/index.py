@@ -63,11 +63,26 @@ async def _query_db_async(query, args=()):
         if not result.rows:
             return []
         
-        # Get column names
-        columns = result.columns
+        # Get column names - handle both attribute and dict access
+        try:
+            columns = result.columns if hasattr(result, 'columns') else list(result.rows[0].keys()) if result.rows and hasattr(result.rows[0], 'keys') else None
+        except:
+            columns = None
         
         # Convert to list of dicts
-        rows = [dict(zip(columns, row)) for row in result.rows]
+        if columns:
+            rows = [dict(zip(columns, row)) for row in result.rows]
+        else:
+            # If rows are already dicts or have different structure
+            rows = []
+            for row in result.rows:
+                if hasattr(row, 'keys'):
+                    rows.append(dict(row))
+                elif hasattr(row, '_asdict'):
+                    rows.append(row._asdict())
+                else:
+                    # Try to convert tuple/list with column indices
+                    rows.append(row)
         return rows
 
 
@@ -508,103 +523,130 @@ def create_challenge_for_user(user_id, plan_id, start_balance):
 @token_required
 def pay_crypto():
     """Process crypto payment."""
-    data = request.get_json()
-    plan_slug = data.get('plan')
-    
-    if not plan_slug or plan_slug not in PLAN_PRICES:
-        return jsonify({'error': 'Invalid plan'}), 400
-    
-    # Get plan from database
-    plan = get_plan_by_slug(plan_slug)
-    if not plan:
-        return jsonify({'error': 'Plan not found'}), 404
-    
-    amount = PLAN_PRICES.get(plan_slug, plan.get('price_dh', 200))
-    start_balance = PLAN_BALANCES.get(plan_slug, 10000)
-    
-    # Simulate crypto payment processing
-    # In production, integrate with a real crypto payment gateway
-    import uuid
-    transaction_id = str(uuid.uuid4())
-    
-    # Create challenge for the user
-    challenge_id = create_challenge_for_user(request.user_id, plan['id'], start_balance)
-    
-    return jsonify({
-        'success': True,
-        'transaction_id': transaction_id,
-        'challenge_id': challenge_id,
-        'message': f'Crypto payment of ${amount} processed successfully',
-        'wallet_address': '0x1234567890abcdef1234567890abcdef12345678',
-        'amount_crypto': amount / 43000  # Approximate BTC conversion
-    })
+    try:
+        data = request.get_json()
+        plan_slug = data.get('plan')
+        
+        if not plan_slug or plan_slug not in PLAN_PRICES:
+            return jsonify({'error': 'Invalid plan'}), 400
+        
+        # Get plan from database
+        plan = get_plan_by_slug(plan_slug)
+        if not plan:
+            return jsonify({'error': 'Plan not found'}), 404
+        
+        amount = PLAN_PRICES.get(plan_slug, 200)
+        start_balance = PLAN_BALANCES.get(plan_slug, 10000)
+        
+        # Get plan_id safely
+        plan_id = plan.get('id') if isinstance(plan, dict) else getattr(plan, 'id', None)
+        if plan_id is None:
+            # If we can't get plan_id, query it directly
+            plan_row = query_db('SELECT id FROM plans WHERE slug = ?', (plan_slug,), one=True)
+            plan_id = plan_row.get('id') if plan_row else 1
+        
+        # Simulate crypto payment processing
+        import uuid
+        transaction_id = str(uuid.uuid4())
+        
+        # Create challenge for the user
+        challenge_id = create_challenge_for_user(request.user_id, plan_id, start_balance)
+        
+        return jsonify({
+            'success': True,
+            'transaction_id': transaction_id,
+            'challenge_id': challenge_id,
+            'message': f'Crypto payment of ${amount} processed successfully',
+            'wallet_address': '0x1234567890abcdef1234567890abcdef12345678',
+            'amount_crypto': amount / 43000  # Approximate BTC conversion
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/checkout/cmi', methods=['POST'])
 @token_required
 def pay_cmi():
     """Process CMI card payment."""
-    data = request.get_json()
-    plan_slug = data.get('plan')
-    
-    if not plan_slug or plan_slug not in PLAN_PRICES:
-        return jsonify({'error': 'Invalid plan'}), 400
-    
-    # Get plan from database
-    plan = get_plan_by_slug(plan_slug)
-    if not plan:
-        return jsonify({'error': 'Plan not found'}), 404
-    
-    amount = PLAN_PRICES.get(plan_slug, plan.get('price_dh', 200))
-    start_balance = PLAN_BALANCES.get(plan_slug, 10000)
-    
-    # Simulate CMI payment processing
-    import uuid
-    transaction_id = str(uuid.uuid4())
-    
-    # Create challenge for the user
-    challenge_id = create_challenge_for_user(request.user_id, plan['id'], start_balance)
-    
-    return jsonify({
-        'success': True,
-        'transaction_id': transaction_id,
-        'challenge_id': challenge_id,
-        'message': f'CMI payment of {amount} DH processed successfully'
-    })
+    try:
+        data = request.get_json()
+        plan_slug = data.get('plan')
+        
+        if not plan_slug or plan_slug not in PLAN_PRICES:
+            return jsonify({'error': 'Invalid plan'}), 400
+        
+        # Get plan from database
+        plan = get_plan_by_slug(plan_slug)
+        if not plan:
+            return jsonify({'error': 'Plan not found'}), 404
+        
+        amount = PLAN_PRICES.get(plan_slug, 200)
+        start_balance = PLAN_BALANCES.get(plan_slug, 10000)
+        
+        # Get plan_id safely
+        plan_id = plan.get('id') if isinstance(plan, dict) else getattr(plan, 'id', None)
+        if plan_id is None:
+            plan_row = query_db('SELECT id FROM plans WHERE slug = ?', (plan_slug,), one=True)
+            plan_id = plan_row.get('id') if plan_row else 1
+        
+        # Simulate CMI payment processing
+        import uuid
+        transaction_id = str(uuid.uuid4())
+        
+        # Create challenge for the user
+        challenge_id = create_challenge_for_user(request.user_id, plan_id, start_balance)
+        
+        return jsonify({
+            'success': True,
+            'transaction_id': transaction_id,
+            'challenge_id': challenge_id,
+            'message': f'CMI payment of {amount} DH processed successfully'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/checkout/paypal', methods=['POST'])
 @token_required
 def pay_paypal():
     """Process PayPal payment."""
-    data = request.get_json()
-    plan_slug = data.get('plan')
-    
-    if not plan_slug or plan_slug not in PLAN_PRICES:
-        return jsonify({'error': 'Invalid plan'}), 400
-    
-    # Get plan from database
-    plan = get_plan_by_slug(plan_slug)
-    if not plan:
-        return jsonify({'error': 'Plan not found'}), 404
-    
-    amount = PLAN_PRICES.get(plan_slug, plan.get('price_dh', 200))
-    start_balance = PLAN_BALANCES.get(plan_slug, 10000)
-    
-    # Simulate PayPal payment processing
-    import uuid
-    transaction_id = str(uuid.uuid4())
-    
-    # Create challenge for the user
-    challenge_id = create_challenge_for_user(request.user_id, plan['id'], start_balance)
-    
-    return jsonify({
-        'success': True,
-        'transaction_id': transaction_id,
-        'challenge_id': challenge_id,
-        'message': f'PayPal payment of ${amount} processed successfully',
-        'paypal_order_id': f'PP-{transaction_id[:8].upper()}'
-    })
+    try:
+        data = request.get_json()
+        plan_slug = data.get('plan')
+        
+        if not plan_slug or plan_slug not in PLAN_PRICES:
+            return jsonify({'error': 'Invalid plan'}), 400
+        
+        # Get plan from database
+        plan = get_plan_by_slug(plan_slug)
+        if not plan:
+            return jsonify({'error': 'Plan not found'}), 404
+        
+        amount = PLAN_PRICES.get(plan_slug, 200)
+        start_balance = PLAN_BALANCES.get(plan_slug, 10000)
+        
+        # Get plan_id safely
+        plan_id = plan.get('id') if isinstance(plan, dict) else getattr(plan, 'id', None)
+        if plan_id is None:
+            plan_row = query_db('SELECT id FROM plans WHERE slug = ?', (plan_slug,), one=True)
+            plan_id = plan_row.get('id') if plan_row else 1
+        
+        # Simulate PayPal payment processing
+        import uuid
+        transaction_id = str(uuid.uuid4())
+        
+        # Create challenge for the user
+        challenge_id = create_challenge_for_user(request.user_id, plan_id, start_balance)
+        
+        return jsonify({
+            'success': True,
+            'transaction_id': transaction_id,
+            'challenge_id': challenge_id,
+            'message': f'PayPal payment of ${amount} processed successfully',
+            'paypal_order_id': f'PP-{transaction_id[:8].upper()}'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 # ============================================
