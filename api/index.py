@@ -485,41 +485,414 @@ def get_leaderboard():
 # Community Routes
 # ============================================
 
-@app.route('/api/v1/community/feed', methods=['GET'])
-@app.route('/v1/community/feed', methods=['GET'])
-def get_community_feed():
-    """Get community feed posts."""
-    posts = query_db(
-        '''SELECT p.*, u.name as author_name, u.avatar_url as author_avatar
-           FROM community_posts p
-           JOIN users u ON p.user_id = u.id
-           ORDER BY p.created_at DESC
-           LIMIT 50'''
-    )
-    
-    return jsonify({'posts': posts})
+@app.route('/api/v1/<tenant>/community/nexus', methods=['GET'])
+@app.route('/v1/<tenant>/community/nexus', methods=['GET'])
+def get_community_nexus(tenant):
+    """Get unified community feed (nexus)."""
+    try:
+        posts = query_db(
+            '''SELECT p.id, p.content, p.media_type, p.media_url, p.likes_count, p.created_at,
+                      u.id as user_id, u.name as author_name, u.role as author_role
+               FROM community_posts p
+               JOIN users u ON p.user_id = u.id
+               WHERE p.tenant_id = ?
+               ORDER BY p.created_at DESC
+               LIMIT 50''',
+            (tenant,)
+        )
+        
+        formatted_posts = []
+        for post in posts:
+            formatted_posts.append({
+                'id': post.get('id'),
+                'content': post.get('content'),
+                'media_type': post.get('media_type', 'TEXT'),
+                'media_url': post.get('media_url'),
+                'likes_count': post.get('likes_count', 0),
+                'created_at': post.get('created_at'),
+                'author': {
+                    'id': post.get('user_id'),
+                    'name': post.get('author_name', 'Anonymous'),
+                    'avatar_url': f"https://api.dicebear.com/7.x/identicon/svg?seed={post.get('author_name', 'user')}",
+                    'role': post.get('author_role', 'user')
+                }
+            })
+        
+        return jsonify({'posts': formatted_posts})
+    except Exception as e:
+        print(f"Error in get_community_nexus: {e}")
+        return jsonify({'posts': []})
 
 
-@app.route('/api/v1/community/posts', methods=['POST'])
-@app.route('/v1/community/posts', methods=['POST'])
+@app.route('/api/v1/<tenant>/community/posts', methods=['POST'])
+@app.route('/v1/<tenant>/community/posts', methods=['POST'])
 @token_required
-def create_post():
-    """Create a new community post."""
-    data = request.get_json()
-    content = data.get('content')
-    media_type = data.get('media_type', 'TEXT')
-    media_url = data.get('media_url')
-    
-    if not content:
-        return jsonify({'error': 'Content is required'}), 400
-    
-    post_id = execute_db(
-        '''INSERT INTO community_posts (user_id, content, media_type, media_url)
-           VALUES (?, ?, ?, ?)''',
-        (request.user_id, content, media_type, media_url)
-    )
-    
-    return jsonify({'message': 'Post created', 'post_id': post_id}), 201
+def create_community_post(tenant):
+    """Create a new community post (text, voice, or image)."""
+    try:
+        # Handle both FormData and JSON
+        if request.content_type and 'multipart/form-data' in request.content_type:
+            content = request.form.get('content', '')
+            file = request.files.get('file')
+            media_type = 'TEXT'
+            media_url = None
+            
+            if file:
+                # For now, we'll skip file upload in serverless
+                # In production, upload to cloud storage
+                media_type = 'VOICE'
+                media_url = None  # Would be cloud storage URL
+        else:
+            data = request.get_json() or {}
+            content = data.get('content', '')
+            media_type = data.get('media_type', 'TEXT')
+            media_url = data.get('media_url')
+        
+        if not content and not media_url:
+            return jsonify({'error': 'Content or media is required'}), 400
+        
+        post_id = execute_db(
+            '''INSERT INTO community_posts (tenant_id, user_id, content, media_type, media_url, likes_count)
+               VALUES (?, ?, ?, ?, ?, 0)''',
+            (tenant, request.user_id, content, media_type, media_url)
+        )
+        
+        # Get user info for response
+        user = query_db('SELECT name, role FROM users WHERE id = ?', (request.user_id,), one=True)
+        user_name = user.get('name', 'User') if user else 'User'
+        user_role = user.get('role', 'user') if user else 'user'
+        
+        return jsonify({
+            'message': 'Post created successfully',
+            'post_id': post_id,
+            'post': {
+                'id': post_id,
+                'content': content,
+                'media_type': media_type,
+                'media_url': media_url,
+                'likes_count': 0,
+                'author': {
+                    'id': request.user_id,
+                    'name': user_name,
+                    'avatar_url': f"https://api.dicebear.com/7.x/identicon/svg?seed={user_name}",
+                    'role': user_role
+                }
+            }
+        }), 201
+    except Exception as e:
+        print(f"Error creating post: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v1/<tenant>/community/posts/<int:post_id>/like', methods=['POST'])
+@app.route('/v1/<tenant>/community/posts/<int:post_id>/like', methods=['POST'])
+@token_required
+def like_post(tenant, post_id):
+    """Like a community post."""
+    try:
+        # Check if already liked
+        existing = query_db(
+            'SELECT id FROM community_post_likes WHERE post_id = ? AND user_id = ?',
+            (post_id, request.user_id),
+            one=True
+        )
+        
+        if existing:
+            return jsonify({'message': 'Already liked'}), 200
+        
+        # Add like
+        execute_db(
+            'INSERT INTO community_post_likes (post_id, user_id) VALUES (?, ?)',
+            (post_id, request.user_id)
+        )
+        
+        # Update likes count
+        execute_db(
+            'UPDATE community_posts SET likes_count = likes_count + 1 WHERE id = ?',
+            (post_id,)
+        )
+        
+        return jsonify({'message': 'Post liked'}), 200
+    except Exception as e:
+        print(f"Error liking post: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v1/<tenant>/community/strategies/top', methods=['GET'])
+@app.route('/v1/<tenant>/community/strategies/top', methods=['GET'])
+def get_top_strategies(tenant):
+    """Get top community strategies."""
+    try:
+        strategies = query_db(
+            '''SELECT s.id, s.symbol, s.description, s.win_rate, s.screenshot_url, s.votes_count, s.created_at,
+                      u.id as user_id, u.name as author_name
+               FROM community_strategies s
+               JOIN users u ON s.user_id = u.id
+               WHERE s.tenant_id = ?
+               ORDER BY s.votes_count DESC
+               LIMIT 10''',
+            (tenant,)
+        )
+        
+        formatted = []
+        for s in strategies:
+            formatted.append({
+                'id': s.get('id'),
+                'symbol': s.get('symbol'),
+                'description': s.get('description'),
+                'win_rate': s.get('win_rate'),
+                'screenshot_url': s.get('screenshot_url'),
+                'votes_count': s.get('votes_count', 0),
+                'created_at': s.get('created_at'),
+                'author': {
+                    'id': s.get('user_id'),
+                    'name': s.get('author_name', 'Anonymous')
+                }
+            })
+        
+        return jsonify(formatted)
+    except Exception as e:
+        print(f"Error getting top strategies: {e}")
+        return jsonify([])
+
+
+@app.route('/api/v1/<tenant>/community/strategies', methods=['POST'])
+@app.route('/v1/<tenant>/community/strategies', methods=['POST'])
+@token_required
+def publish_strategy(tenant):
+    """Publish a new community strategy."""
+    try:
+        if request.content_type and 'multipart/form-data' in request.content_type:
+            symbol = request.form.get('symbol', '')
+            description = request.form.get('description', '')
+            win_rate = request.form.get('win_rate')
+            screenshot = request.files.get('screenshot')
+        else:
+            data = request.get_json() or {}
+            symbol = data.get('symbol', '')
+            description = data.get('description', '')
+            win_rate = data.get('win_rate')
+            screenshot = None
+        
+        if not symbol:
+            return jsonify({'error': 'Symbol is required'}), 400
+        
+        strategy_id = execute_db(
+            '''INSERT INTO community_strategies (tenant_id, user_id, symbol, description, win_rate, votes_count)
+               VALUES (?, ?, ?, ?, ?, 0)''',
+            (tenant, request.user_id, symbol, description, float(win_rate) if win_rate else None)
+        )
+        
+        return jsonify({'message': 'Strategy published', 'strategy_id': strategy_id}), 201
+    except Exception as e:
+        print(f"Error publishing strategy: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v1/<tenant>/community/strategies/<int:strategy_id>/vote', methods=['POST'])
+@app.route('/v1/<tenant>/community/strategies/<int:strategy_id>/vote', methods=['POST'])
+@token_required
+def vote_strategy(tenant, strategy_id):
+    """Vote for a community strategy."""
+    try:
+        # Check if already voted
+        existing = query_db(
+            'SELECT id FROM strategy_votes WHERE strategy_id = ? AND user_id = ?',
+            (strategy_id, request.user_id),
+            one=True
+        )
+        
+        if existing:
+            return jsonify({'message': 'Already voted'}), 200
+        
+        # Add vote
+        execute_db(
+            'INSERT INTO strategy_votes (strategy_id, user_id) VALUES (?, ?)',
+            (strategy_id, request.user_id)
+        )
+        
+        # Update votes count
+        execute_db(
+            'UPDATE community_strategies SET votes_count = votes_count + 1 WHERE id = ?',
+            (strategy_id,)
+        )
+        
+        return jsonify({'message': 'Vote recorded'}), 200
+    except Exception as e:
+        print(f"Error voting strategy: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ============================================
+# Direct Messaging Routes
+# ============================================
+
+@app.route('/api/v1/<tenant>/dm/conversations', methods=['GET'])
+@app.route('/v1/<tenant>/dm/conversations', methods=['GET'])
+@token_required
+def get_conversations(tenant):
+    """Get all conversations for the current user."""
+    try:
+        conversations = query_db(
+            '''SELECT c.id, c.last_message_at, c.created_at,
+                      u1.id as user1_id, u1.name as user1_name,
+                      u2.id as user2_id, u2.name as user2_name
+               FROM dm_conversations c
+               JOIN users u1 ON c.user1_id = u1.id
+               JOIN users u2 ON c.user2_id = u2.id
+               WHERE c.user1_id = ? OR c.user2_id = ?
+               ORDER BY c.last_message_at DESC''',
+            (request.user_id, request.user_id)
+        )
+        
+        formatted = []
+        for c in conversations:
+            # Get the other user in the conversation
+            other_id = c.get('user2_id') if c.get('user1_id') == request.user_id else c.get('user1_id')
+            other_name = c.get('user2_name') if c.get('user1_id') == request.user_id else c.get('user1_name')
+            
+            formatted.append({
+                'id': other_id,  # Use other user's ID as conversation ID
+                'name': other_name,
+                'avatar_url': f"https://api.dicebear.com/7.x/identicon/svg?seed={other_name}",
+                'last_message_at': c.get('last_message_at')
+            })
+        
+        return jsonify(formatted)
+    except Exception as e:
+        print(f"Error getting conversations: {e}")
+        return jsonify([])
+
+
+@app.route('/api/v1/<tenant>/dm/users', methods=['GET'])
+@app.route('/v1/<tenant>/dm/users', methods=['GET'])
+@token_required
+def get_available_users(tenant):
+    """Get all users available for DM."""
+    try:
+        users = query_db(
+            'SELECT id, name, role FROM users WHERE id != ? LIMIT 50',
+            (request.user_id,)
+        )
+        
+        formatted = []
+        for u in users:
+            formatted.append({
+                'id': u.get('id'),
+                'name': u.get('name'),
+                'avatar_url': f"https://api.dicebear.com/7.x/identicon/svg?seed={u.get('name')}",
+                'role': u.get('role', 'user')
+            })
+        
+        return jsonify(formatted)
+    except Exception as e:
+        print(f"Error getting users: {e}")
+        return jsonify([])
+
+
+@app.route('/api/v1/<tenant>/dm/messages/<int:user_id>', methods=['GET'])
+@app.route('/v1/<tenant>/dm/messages/<int:user_id>', methods=['GET'])
+@token_required
+def get_dm_messages(tenant, user_id):
+    """Get messages between current user and another user."""
+    try:
+        # Find conversation
+        conv = query_db(
+            '''SELECT id FROM dm_conversations 
+               WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)''',
+            (request.user_id, user_id, user_id, request.user_id),
+            one=True
+        )
+        
+        if not conv:
+            return jsonify([])
+        
+        messages = query_db(
+            '''SELECT m.id, m.content, m.media_url, m.is_read, m.created_at,
+                      m.sender_id, u.name as sender_name
+               FROM direct_messages m
+               JOIN users u ON m.sender_id = u.id
+               WHERE m.conversation_id = ?
+               ORDER BY m.created_at ASC''',
+            (conv.get('id'),)
+        )
+        
+        formatted = []
+        for m in messages:
+            formatted.append({
+                'id': m.get('id'),
+                'content': m.get('content'),
+                'media_url': m.get('media_url'),
+                'is_read': m.get('is_read'),
+                'created_at': m.get('created_at'),
+                'sender': {
+                    'id': m.get('sender_id'),
+                    'name': m.get('sender_name')
+                },
+                'is_mine': m.get('sender_id') == request.user_id
+            })
+        
+        return jsonify(formatted)
+    except Exception as e:
+        print(f"Error getting messages: {e}")
+        return jsonify([])
+
+
+@app.route('/api/v1/<tenant>/dm/messages/<int:user_id>', methods=['POST'])
+@app.route('/v1/<tenant>/dm/messages/<int:user_id>', methods=['POST'])
+@token_required
+def send_dm_message(tenant, user_id):
+    """Send a direct message to another user."""
+    try:
+        # Handle both FormData and JSON
+        if request.content_type and 'multipart/form-data' in request.content_type:
+            content = request.form.get('content', '')
+            file = request.files.get('file')
+            media_url = None
+            if file:
+                # Would upload to cloud storage
+                pass
+        else:
+            data = request.get_json() or {}
+            content = data.get('content', '')
+            media_url = data.get('media_url')
+        
+        if not content and not media_url:
+            return jsonify({'error': 'Message content is required'}), 400
+        
+        # Find or create conversation
+        conv = query_db(
+            '''SELECT id FROM dm_conversations 
+               WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)''',
+            (request.user_id, user_id, user_id, request.user_id),
+            one=True
+        )
+        
+        if not conv:
+            # Create new conversation
+            conv_id = execute_db(
+                'INSERT INTO dm_conversations (user1_id, user2_id) VALUES (?, ?)',
+                (request.user_id, user_id)
+            )
+        else:
+            conv_id = conv.get('id')
+        
+        # Insert message
+        msg_id = execute_db(
+            'INSERT INTO direct_messages (conversation_id, sender_id, content, media_url) VALUES (?, ?, ?, ?)',
+            (conv_id, request.user_id, content, media_url)
+        )
+        
+        # Update conversation last_message_at
+        execute_db(
+            'UPDATE dm_conversations SET last_message_at = CURRENT_TIMESTAMP WHERE id = ?',
+            (conv_id,)
+        )
+        
+        return jsonify({'message': 'Message sent', 'message_id': msg_id}), 201
+    except Exception as e:
+        print(f"Error sending message: {e}")
+        return jsonify({'error': str(e)}), 500
 
 
 # ============================================
