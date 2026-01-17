@@ -472,6 +472,142 @@ def get_market_quotes():
 
 
 # ============================================
+# Checkout Routes
+# ============================================
+
+PLAN_PRICES = {'starter': 200, 'pro': 500, 'elite': 1000}
+PLAN_BALANCES = {'starter': 10000, 'pro': 25000, 'elite': 100000}
+
+def get_plan_by_slug(slug):
+    """Get plan from database by slug."""
+    return query_db('SELECT * FROM plans WHERE slug = ?', (slug,), one=True)
+
+def create_challenge_for_user(user_id, plan_id, start_balance):
+    """Create a new challenge for the user."""
+    import uuid
+    from datetime import datetime, timedelta
+    
+    challenge_id = execute_db(
+        '''INSERT INTO challenges (user_id, plan_id, status, start_balance, equity, max_drawdown, profit_target, end_date)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+        (
+            user_id,
+            plan_id,
+            'active',
+            start_balance,
+            start_balance,
+            0.10,  # 10% max drawdown
+            0.10,  # 10% profit target
+            (datetime.utcnow() + timedelta(days=30)).isoformat()
+        )
+    )
+    return challenge_id
+
+
+@app.route('/api/checkout/crypto', methods=['POST'])
+@token_required
+def pay_crypto():
+    """Process crypto payment."""
+    data = request.get_json()
+    plan_slug = data.get('plan')
+    
+    if not plan_slug or plan_slug not in PLAN_PRICES:
+        return jsonify({'error': 'Invalid plan'}), 400
+    
+    # Get plan from database
+    plan = get_plan_by_slug(plan_slug)
+    if not plan:
+        return jsonify({'error': 'Plan not found'}), 404
+    
+    amount = PLAN_PRICES.get(plan_slug, plan.get('price_dh', 200))
+    start_balance = PLAN_BALANCES.get(plan_slug, 10000)
+    
+    # Simulate crypto payment processing
+    # In production, integrate with a real crypto payment gateway
+    import uuid
+    transaction_id = str(uuid.uuid4())
+    
+    # Create challenge for the user
+    challenge_id = create_challenge_for_user(request.user_id, plan['id'], start_balance)
+    
+    return jsonify({
+        'success': True,
+        'transaction_id': transaction_id,
+        'challenge_id': challenge_id,
+        'message': f'Crypto payment of ${amount} processed successfully',
+        'wallet_address': '0x1234567890abcdef1234567890abcdef12345678',
+        'amount_crypto': amount / 43000  # Approximate BTC conversion
+    })
+
+
+@app.route('/api/checkout/cmi', methods=['POST'])
+@token_required
+def pay_cmi():
+    """Process CMI card payment."""
+    data = request.get_json()
+    plan_slug = data.get('plan')
+    
+    if not plan_slug or plan_slug not in PLAN_PRICES:
+        return jsonify({'error': 'Invalid plan'}), 400
+    
+    # Get plan from database
+    plan = get_plan_by_slug(plan_slug)
+    if not plan:
+        return jsonify({'error': 'Plan not found'}), 404
+    
+    amount = PLAN_PRICES.get(plan_slug, plan.get('price_dh', 200))
+    start_balance = PLAN_BALANCES.get(plan_slug, 10000)
+    
+    # Simulate CMI payment processing
+    import uuid
+    transaction_id = str(uuid.uuid4())
+    
+    # Create challenge for the user
+    challenge_id = create_challenge_for_user(request.user_id, plan['id'], start_balance)
+    
+    return jsonify({
+        'success': True,
+        'transaction_id': transaction_id,
+        'challenge_id': challenge_id,
+        'message': f'CMI payment of {amount} DH processed successfully'
+    })
+
+
+@app.route('/api/checkout/paypal', methods=['POST'])
+@token_required
+def pay_paypal():
+    """Process PayPal payment."""
+    data = request.get_json()
+    plan_slug = data.get('plan')
+    
+    if not plan_slug or plan_slug not in PLAN_PRICES:
+        return jsonify({'error': 'Invalid plan'}), 400
+    
+    # Get plan from database
+    plan = get_plan_by_slug(plan_slug)
+    if not plan:
+        return jsonify({'error': 'Plan not found'}), 404
+    
+    amount = PLAN_PRICES.get(plan_slug, plan.get('price_dh', 200))
+    start_balance = PLAN_BALANCES.get(plan_slug, 10000)
+    
+    # Simulate PayPal payment processing
+    import uuid
+    transaction_id = str(uuid.uuid4())
+    
+    # Create challenge for the user
+    challenge_id = create_challenge_for_user(request.user_id, plan['id'], start_balance)
+    
+    return jsonify({
+        'success': True,
+        'transaction_id': transaction_id,
+        'challenge_id': challenge_id,
+        'message': f'PayPal payment of ${amount} processed successfully',
+        'paypal_order_id': f'PP-{transaction_id[:8].upper()}'
+    })
+
+
+# ============================================
 # Error Handlers
 # ============================================
 
