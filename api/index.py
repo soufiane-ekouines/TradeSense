@@ -156,15 +156,16 @@ def turso_execute(sql, args=None):
 
 
 def init_challenges_table():
-    """Ensure the challenges table exists with the correct schema."""
+    """Ensure the challenges table exists with the correct schema and has all required columns."""
     try:
+        # First, try to create the table if it doesn't exist
         turso_execute('''
             CREATE TABLE IF NOT EXISTS challenges (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER,
                 plan_id INTEGER,
-                start_balance REAL NOT NULL,
-                equity REAL NOT NULL,
+                start_balance REAL NOT NULL DEFAULT 0,
+                equity REAL NOT NULL DEFAULT 0,
                 max_drawdown REAL DEFAULT 0.10,
                 profit_target REAL DEFAULT 0.10,
                 status TEXT DEFAULT 'active',
@@ -174,6 +175,27 @@ def init_challenges_table():
                 failed_at TEXT
             )
         ''')
+        print("[DB] Challenges table created or already exists")
+        
+        # Now add missing columns if they don't exist (SQLite doesn't support IF NOT EXISTS for columns)
+        # We'll try each ALTER TABLE and ignore errors if column already exists
+        missing_columns = [
+            ("max_drawdown", "REAL DEFAULT 0.10"),
+            ("profit_target", "REAL DEFAULT 0.10"),
+            ("end_date", "TEXT")
+        ]
+        
+        for col_name, col_type in missing_columns:
+            try:
+                turso_execute(f'ALTER TABLE challenges ADD COLUMN {col_name} {col_type}')
+                print(f"[DB] Added column {col_name} to challenges table")
+            except Exception as col_err:
+                # Column likely already exists, which is fine
+                if "duplicate column" in str(col_err).lower() or "already exists" in str(col_err).lower():
+                    print(f"[DB] Column {col_name} already exists")
+                else:
+                    print(f"[DB WARNING] Could not add column {col_name}: {col_err}")
+        
         print("[DB] Challenges table initialized successfully")
         return True
     except Exception as e:
