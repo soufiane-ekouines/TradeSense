@@ -7,7 +7,6 @@ It connects to Turso (LibSQL) for the database via HTTP API.
 
 import os
 import sys
-import asyncio
 
 # Add the api directory to the path for imports
 api_dir = os.path.dirname(os.path.abspath(__file__))
@@ -19,7 +18,7 @@ from flask_cors import CORS
 from functools import wraps
 import json
 
-# Import libsql_client for Turso connection
+# Import libsql_client for Turso connection (sync version for serverless)
 import libsql_client
 
 # ============================================
@@ -30,67 +29,72 @@ TURSO_DATABASE_URL = os.environ.get('TURSO_DATABASE_URL', '')
 TURSO_AUTH_TOKEN = os.environ.get('TURSO_AUTH_TOKEN', '')
 
 
-def get_turso_url():
-    """Convert libsql:// URL to https:// for HTTP client."""
-    url = TURSO_DATABASE_URL
-    if url.startswith("libsql://"):
-        url = url.replace("libsql://", "https://")
-    return url
-
-
-def run_async(coro):
-    """Helper to run async code in sync context."""
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    return loop.run_until_complete(coro)
-
-
-async def _query_db_async(query, args=()):
-    """Execute a query and return results (async)."""
+def get_db():
+    """
+    Create a new Turso database client for each request.
+    In serverless environments, we don't keep global connections open.
+    Returns the client or None if not configured.
+    """
     if not TURSO_DATABASE_URL or not TURSO_AUTH_TOKEN:
-        return []
-    
-    async with libsql_client.create_client(
-        url=get_turso_url(),
-        auth_token=TURSO_AUTH_TOKEN
-    ) as client:
-        result = await client.execute(query, args)
-        
-        if not result.rows:
-            return []
-        
-        columns = result.columns
-        rows = [dict(zip(columns, row)) for row in result.rows]
-        return rows
-
-
-async def _execute_db_async(query, args=()):
-    """Execute a write query (async)."""
-    if not TURSO_DATABASE_URL or not TURSO_AUTH_TOKEN:
+        print("[DB ERROR] TURSO_DATABASE_URL or TURSO_AUTH_TOKEN not configured")
         return None
     
-    async with libsql_client.create_client(
-        url=get_turso_url(),
-        auth_token=TURSO_AUTH_TOKEN
-    ) as client:
-        result = await client.execute(query, args)
-        return result.last_insert_rowid
+    try:
+        # Use sync client for serverless - simpler and more reliable
+        client = libsql_client.create_client_sync(
+            url=TURSO_DATABASE_URL,
+            auth_token=TURSO_AUTH_TOKEN
+        )
+        return client
+    except Exception as e:
+        print(f"[DB ERROR] Failed to create Turso client: {str(e)}")
+        return None
 
 
 def query_db(query, args=(), one=False):
-    """Execute a query and return results (sync wrapper)."""
-    rows = run_async(_query_db_async(query, args))
-    if not rows:
+    """Execute a query and return results."""
+    client = get_db()
+    if not client:
         return None if one else []
-    return rows[0] if one else rows
+    
+    try:
+        result = client.execute(query, args)
+        
+        if not result.rows:
+            return None if one else []
+        
+        columns = result.columns
+        rows = [dict(zip(columns, row)) for row in result.rows]
+        return rows[0] if one else rows
+    except Exception as e:
+        print(f"[DB ERROR] Query failed: {str(e)}")
+        print(f"[DB ERROR] Query was: {query}")
+        raise e
+    finally:
+        try:
+            client.close()
+        except:
+            pass
 
 
 def execute_db(query, args=()):
-    """Execute a write query (sync wrapper)."""
-    return run_async(_execute_db_async(query, args))
+    """Execute a write query and return last insert ID."""
+    client = get_db()
+    if not client:
+        return None
+    
+    try:
+        result = client.execute(query, args)
+        return result.last_insert_rowid
+    except Exception as e:
+        print(f"[DB ERROR] Execute failed: {str(e)}")
+        print(f"[DB ERROR] Query was: {query}")
+        raise e
+    finally:
+        try:
+            client.close()
+        except:
+            pass
 
 
 # ============================================
@@ -258,30 +262,46 @@ def login():
     """Login a user."""
     from werkzeug.security import check_password_hash
     
-    data = request.get_json()
+    # Explicitly handle JSON parsing
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+    except Exception as e:
+        print(f"[LOGIN ERROR] Failed to parse JSON: {str(e)}")
+        return jsonify({'error': 'Invalid JSON data'}), 400
+    
     email = data.get('email')
     password = data.get('password')
     
     if not all([email, password]):
         return jsonify({'error': 'Email and password are required'}), 400
     
-    user = query_db('SELECT * FROM users WHERE email = ?', (email,), one=True)
-    
-    if not user or not check_password_hash(user['password_hash'], password):
-        return jsonify({'error': 'Invalid credentials'}), 401
-    
-    token = create_token(user['id'], user['role'])
-    
-    return jsonify({
-        'message': 'Login successful',
-        'token': token,
-        'user': {
-            'id': user['id'],
-            'name': user['name'],
-            'email': user['email'],
-            'role': user['role']
-        }
-    })
+    # Use try/finally to ensure database connection is properly handled
+    try:
+        user = query_db('SELECT * FROM users WHERE email = ?', (email,), one=True)
+        
+        if not user:
+            return jsonify({'error': 'Invalid credentials'}), 401
+        
+        if not check_password_hash(user['password_hash'], password):
+            return jsonify({'error': 'Invalid credentials'}), 401
+        
+        token = create_token(user['id'], user['role'])
+        
+        return jsonify({
+            'message': 'Login successful',
+            'token': token,
+            'user': {
+                'id': user['id'],
+                'name': user['name'],
+                'email': user['email'],
+                'role': user['role']
+            }
+        })
+    except Exception as e:
+        print(f"[LOGIN ERROR] Database error: {str(e)}")
+        return jsonify({'error': 'Login failed. Please try again.'}), 500
 
 
 @app.route('/api/auth/me', methods=['GET'])

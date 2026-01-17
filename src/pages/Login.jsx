@@ -28,7 +28,21 @@ export default function Login() {
             localStorage.setItem('user', JSON.stringify(data.user));
             navigate('/dashboard');
         } catch (err) {
-            setError(err.response?.data?.error || 'Login failed');
+            // Handle error properly - ensure we always get a string
+            console.error('[Login Page] Error:', err);
+            let errorMessage = 'Login failed. Please try again.';
+            
+            if (typeof err === 'string') {
+                errorMessage = err;
+            } else if (err?.message) {
+                errorMessage = err.message;
+            } else if (err?.data?.error) {
+                errorMessage = err.data.error;
+            } else if (err?.response?.data?.error) {
+                errorMessage = err.response.data.error;
+            }
+            
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }

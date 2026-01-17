@@ -19,6 +19,14 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
     (response) => response,
     (error) => {
+        // Log the error for debugging
+        console.error('[API Error]', {
+            url: error.config?.url,
+            status: error.response?.status,
+            data: error.response?.data,
+            message: error.message
+        });
+        
         if (error.response && error.response.status === 401) {
             // Token expired or invalid
             localStorage.removeItem('token');
@@ -27,13 +35,39 @@ api.interceptors.response.use(
                 window.location.href = '/login?expired=true';
             }
         }
-        return Promise.reject(error);
+        
+        // Extract error message from response if available
+        const errorMessage = error.response?.data?.error || error.message || 'An error occurred';
+        
+        // Create a more informative error object
+        const enhancedError = new Error(errorMessage);
+        enhancedError.status = error.response?.status;
+        enhancedError.data = error.response?.data;
+        enhancedError.originalError = error;
+        
+        return Promise.reject(enhancedError);
     }
 );
 
 export const auth = {
-    login: (email, password) => api.post('/auth/login', { email, password }),
-    register: (name, email, password) => api.post('/auth/register', { name, email, password }),
+    login: async (email, password) => {
+        try {
+            const response = await api.post('/auth/login', { email, password });
+            return response;
+        } catch (error) {
+            console.error('[Login Error]', error.message);
+            throw error;
+        }
+    },
+    register: async (name, email, password) => {
+        try {
+            const response = await api.post('/auth/register', { name, email, password });
+            return response;
+        } catch (error) {
+            console.error('[Register Error]', error.message);
+            throw error;
+        }
+    },
 };
 
 export const challenges = {
