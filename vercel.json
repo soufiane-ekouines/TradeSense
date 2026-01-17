@@ -14,10 +14,5 @@
       "runtime": "python3.11",
       "maxDuration": 30
     }
-  },
-  "env": {
-    "TURSO_DATABASE_URL": "@turso_database_url",
-    "TURSO_AUTH_TOKEN": "@turso_auth_token",
-    "JWT_SECRET": "@jwt_secret"
   }
 }
