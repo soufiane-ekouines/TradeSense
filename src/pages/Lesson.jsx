@@ -9,17 +9,17 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 const TENANT = 'default';
 
 const LessonPage = () => {
     const { lessonId } = useParams();
     const navigate = useNavigate();
-    
+
     const [lesson, setLesson] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('content'); // 'content', 'quiz'
-    
+
     // Video Player State
     const [isPlaying, setIsPlaying] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
@@ -28,7 +28,7 @@ const LessonPage = () => {
     const [showControls, setShowControls] = useState(true);
     const videoRef = useRef(null);
     const controlsTimeoutRef = useRef(null);
-    
+
     // Quiz State
     const [quizAnswers, setQuizAnswers] = useState({});
     const [quizSubmitted, setQuizSubmitted] = useState(false);
@@ -46,7 +46,7 @@ const LessonPage = () => {
                 saveProgress(currentTime);
             }
         }, 30000); // Every 30 seconds
-        
+
         return () => clearInterval(interval);
     }, [currentTime]);
 
@@ -57,7 +57,7 @@ const LessonPage = () => {
             const headers = token ? { Authorization: `Bearer ${token}` } : {};
             const response = await axios.get(`${API_URL}/v1/${TENANT}/academy/lessons/${lessonId}`, { headers });
             setLesson(response.data);
-            
+
             // Restore video progress
             if (response.data.user_progress?.video_progress) {
                 setCurrentTime(response.data.user_progress.video_progress);
@@ -72,7 +72,7 @@ const LessonPage = () => {
     const saveProgress = async (seconds) => {
         const token = localStorage.getItem('token');
         if (!token) return;
-        
+
         try {
             await axios.post(
                 `${API_URL}/v1/${TENANT}/academy/lessons/${lessonId}/progress`,
@@ -90,7 +90,7 @@ const LessonPage = () => {
             alert('Please login to submit the quiz');
             return;
         }
-        
+
         setIsSubmittingQuiz(true);
         try {
             const response = await axios.post(
@@ -179,7 +179,7 @@ const LessonPage = () => {
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center">
                     <h2 className="text-2xl font-bold text-red-400 mb-4">Lesson not found</h2>
-                    <button 
+                    <button
                         onClick={() => navigate('/academy')}
                         className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-500"
                     >
@@ -196,7 +196,7 @@ const LessonPage = () => {
             <div className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-xl border-b border-white/10 px-6 py-3">
                 <div className="flex items-center justify-between max-w-7xl mx-auto">
                     <div className="flex items-center gap-4">
-                        <button 
+                        <button
                             onClick={() => navigate('/academy')}
                             className="p-2 hover:bg-white/10 rounded-lg transition-colors"
                         >
@@ -207,7 +207,7 @@ const LessonPage = () => {
                             <h1 className="font-semibold">{lesson.title}</h1>
                         </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-2 text-sm text-slate-400">
                             <Clock size={16} />
@@ -226,7 +226,7 @@ const LessonPage = () => {
                 {/* Video Area */}
                 <div className="flex-1 flex flex-col">
                     {/* Custom Video Player */}
-                    <div 
+                    <div
                         className="relative bg-black flex-1 flex items-center justify-center"
                         onMouseMove={handleMouseMove}
                         onMouseLeave={() => isPlaying && setShowControls(false)}
@@ -243,7 +243,7 @@ const LessonPage = () => {
                                     onPause={() => setIsPlaying(false)}
                                     muted={isMuted}
                                 />
-                                
+
                                 {/* Video Controls Overlay */}
                                 <AnimatePresence>
                                     {showControls && (
@@ -260,16 +260,15 @@ const LessonPage = () => {
                                                         <button
                                                             key={i}
                                                             onClick={() => seekTo(marker.time)}
-                                                            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                                                                currentTime >= marker.time ? 'bg-blue-500' : 'bg-white/20 hover:bg-white/30'
-                                                            }`}
+                                                            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${currentTime >= marker.time ? 'bg-blue-500' : 'bg-white/20 hover:bg-white/30'
+                                                                }`}
                                                         >
                                                             {marker.title}
                                                         </button>
                                                     ))}
                                                 </div>
                                             )}
-                                            
+
                                             {/* Center Play Button */}
                                             <button
                                                 onClick={togglePlay}
@@ -283,22 +282,22 @@ const LessonPage = () => {
                                                     )}
                                                 </div>
                                             </button>
-                                            
+
                                             {/* Bottom Controls */}
                                             <div className="p-4 space-y-3">
                                                 {/* Progress Bar */}
-                                                <div 
+                                                <div
                                                     className="w-full h-1.5 bg-white/20 rounded-full cursor-pointer group"
                                                     onClick={handleProgressClick}
                                                 >
-                                                    <div 
+                                                    <div
                                                         className="h-full bg-blue-500 rounded-full relative group-hover:h-2 transition-all"
                                                         style={{ width: `${(currentTime / duration) * 100}%` }}
                                                     >
                                                         <div className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
                                                     </div>
                                                 </div>
-                                                
+
                                                 {/* Control Buttons */}
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-4">
@@ -342,22 +341,20 @@ const LessonPage = () => {
                     <div className="flex border-b border-white/10">
                         <button
                             onClick={() => setActiveTab('content')}
-                            className={`flex-1 py-4 flex items-center justify-center gap-2 font-medium transition-colors ${
-                                activeTab === 'content' 
-                                    ? 'text-blue-400 border-b-2 border-blue-400 bg-blue-500/10' 
+                            className={`flex-1 py-4 flex items-center justify-center gap-2 font-medium transition-colors ${activeTab === 'content'
+                                    ? 'text-blue-400 border-b-2 border-blue-400 bg-blue-500/10'
                                     : 'text-slate-400 hover:text-white'
-                            }`}
+                                }`}
                         >
                             <FileText size={18} />
                             Contenu
                         </button>
                         <button
                             onClick={() => setActiveTab('quiz')}
-                            className={`flex-1 py-4 flex items-center justify-center gap-2 font-medium transition-colors ${
-                                activeTab === 'quiz' 
-                                    ? 'text-purple-400 border-b-2 border-purple-400 bg-purple-500/10' 
+                            className={`flex-1 py-4 flex items-center justify-center gap-2 font-medium transition-colors ${activeTab === 'quiz'
+                                    ? 'text-purple-400 border-b-2 border-purple-400 bg-purple-500/10'
                                     : 'text-slate-400 hover:text-white'
-                            }`}
+                                }`}
                         >
                             <HelpCircle size={18} />
                             Quiz
@@ -375,14 +372,14 @@ const LessonPage = () => {
                             <div className="p-6 space-y-4">
                                 <h3 className="font-bold text-lg">{lesson.title}</h3>
                                 <p className="text-slate-400">{lesson.description}</p>
-                                
+
                                 {lesson.content_markdown && (
                                     <div className="prose prose-invert prose-sm max-w-none">
                                         {/* Render markdown content */}
                                         <div dangerouslySetInnerHTML={{ __html: lesson.content_markdown }} />
                                     </div>
                                 )}
-                                
+
                                 {/* Chapter List */}
                                 {lesson.chapter_markers?.length > 0 && (
                                     <div className="mt-6">
@@ -395,11 +392,10 @@ const LessonPage = () => {
                                                 <button
                                                     key={i}
                                                     onClick={() => seekTo(chapter.time)}
-                                                    className={`w-full p-3 rounded-lg text-left transition-colors ${
-                                                        currentTime >= chapter.time && currentTime < (lesson.chapter_markers[i+1]?.time || duration)
+                                                    className={`w-full p-3 rounded-lg text-left transition-colors ${currentTime >= chapter.time && currentTime < (lesson.chapter_markers[i + 1]?.time || duration)
                                                             ? 'bg-blue-500/20 border border-blue-500/30'
                                                             : 'bg-white/5 hover:bg-white/10'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     <div className="flex items-center justify-between">
                                                         <span className="font-medium">{chapter.title}</span>
@@ -442,11 +438,10 @@ const LessonPage = () => {
                                                                 <button
                                                                     key={oi}
                                                                     onClick={() => setQuizAnswers({ ...quizAnswers, [q.id]: oi })}
-                                                                    className={`w-full p-3 rounded-xl text-left transition-all ${
-                                                                        quizAnswers[q.id] === oi
+                                                                    className={`w-full p-3 rounded-xl text-left transition-all ${quizAnswers[q.id] === oi
                                                                             ? 'bg-blue-500/20 border-2 border-blue-500'
                                                                             : 'bg-white/5 border border-white/10 hover:bg-white/10'
-                                                                    }`}
+                                                                        }`}
                                                                 >
                                                                     <span className="mr-2 text-slate-500">{String.fromCharCode(65 + oi)}.</span>
                                                                     {option}
@@ -500,29 +495,28 @@ const QuizResults = ({ results, onRetry }) => {
             className="space-y-6"
         >
             {/* Score Display */}
-            <div className={`text-center p-6 rounded-2xl ${
-                results.passed 
-                    ? 'bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-500/30' 
+            <div className={`text-center p-6 rounded-2xl ${results.passed
+                    ? 'bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-500/30'
                     : 'bg-gradient-to-br from-red-500/20 to-orange-500/20 border border-red-500/30'
-            }`}>
+                }`}>
                 {results.passed ? (
                     <Trophy className="mx-auto mb-3 text-amber-400" size={48} />
                 ) : (
                     <XCircle className="mx-auto mb-3 text-red-400" size={48} />
                 )}
-                
+
                 <h3 className="text-2xl font-bold mb-2">
                     {results.passed ? '🎉 Félicitations!' : 'Pas encore...'}
                 </h3>
-                
+
                 <div className="text-4xl font-bold my-4">
                     {Math.round(results.score)}%
                 </div>
-                
+
                 <p className="text-slate-400">
                     {results.correct_count}/{results.total_count} réponses correctes
                 </p>
-                
+
                 {results.passed && results.xp_earned > 0 && (
                     <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-amber-500/20 rounded-full text-amber-400 font-semibold">
                         <Zap size={18} />
@@ -535,11 +529,10 @@ const QuizResults = ({ results, onRetry }) => {
             <div className="space-y-4">
                 <h4 className="font-semibold">Révision des Réponses</h4>
                 {results.results.map((r, i) => (
-                    <div 
+                    <div
                         key={r.quiz_id}
-                        className={`p-4 rounded-xl ${
-                            r.correct ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'
-                        }`}
+                        className={`p-4 rounded-xl ${r.correct ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'
+                            }`}
                     >
                         <div className="flex items-start gap-3">
                             {r.correct ? (

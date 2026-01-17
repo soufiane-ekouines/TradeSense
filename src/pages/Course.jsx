@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 const TENANT = 'default';
 
 const CoursePage = () => {
@@ -29,7 +29,7 @@ const CoursePage = () => {
             const headers = token ? { Authorization: `Bearer ${token}` } : {};
             const response = await axios.get(`${API_URL}/v1/${TENANT}/academy/courses/${courseId}`, { headers });
             setCourse(response.data);
-            
+
             // Check if user has any progress (means enrolled)
             if (response.data.user_progress > 0) {
                 setIsEnrolled(true);
@@ -116,7 +116,7 @@ const CoursePage = () => {
     }
 
     const totalLessons = course.modules?.reduce((sum, m) => sum + (m.lessons?.length || 0), 0) || 0;
-    const completedLessons = course.modules?.reduce((sum, m) => 
+    const completedLessons = course.modules?.reduce((sum, m) =>
         sum + (m.lessons?.filter(l => l.completed)?.length || 0), 0) || 0;
 
     return (
@@ -124,7 +124,7 @@ const CoursePage = () => {
             {/* Hero Section */}
             <div className="relative h-[50vh] overflow-hidden">
                 {/* Background Image */}
-                <div 
+                <div
                     className="absolute inset-0 bg-cover bg-center"
                     style={{ backgroundImage: `url(${course.thumbnail_url})` }}
                 >
@@ -157,7 +157,7 @@ const CoursePage = () => {
 
                     {/* Title */}
                     <h1 className="text-4xl md:text-5xl font-bold mb-4">{course.title}</h1>
-                    
+
                     {/* Description */}
                     <p className="text-lg text-slate-300 max-w-2xl mb-6">{course.description}</p>
 
@@ -246,11 +246,10 @@ const CoursePage = () => {
                                             >
                                                 <div className="flex items-center gap-4">
                                                     {/* Status Icon */}
-                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                                                        lesson.completed 
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${lesson.completed
                                                             ? 'bg-green-500/20 text-green-400'
                                                             : 'bg-white/10 text-slate-400'
-                                                    }`}>
+                                                        }`}>
                                                         {lesson.completed ? (
                                                             <CheckCircle size={18} />
                                                         ) : (

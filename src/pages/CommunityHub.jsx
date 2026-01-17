@@ -9,7 +9,7 @@ import {
 import axios from 'axios';
 import { useLanguage } from '../context/LanguageContext';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 const TENANT = 'default';
 
 const CommunityHub = () => {
@@ -23,7 +23,7 @@ const CommunityHub = () => {
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
     const [isLoading, setIsLoading] = useState(true);
     const [isSending, setIsSending] = useState(false);
-    
+
     // Voice recording states
     const [audioBlob, setAudioBlob] = useState(null);
     const [audioUrl, setAudioUrl] = useState(null);
@@ -31,7 +31,7 @@ const CommunityHub = () => {
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
     const timerRef = useRef(null);
-    
+
     // DM states
     const [showDMPanel, setShowDMPanel] = useState(false);
     const [conversations, setConversations] = useState([]);
@@ -107,7 +107,7 @@ const CommunityHub = () => {
             mediaRecorderRef.current.start();
             setIsRecording(true);
             setRecordingTime(0);
-            
+
             // Start timer
             timerRef.current = setInterval(() => {
                 setRecordingTime(prev => prev + 1);
@@ -143,21 +143,21 @@ const CommunityHub = () => {
 
     const handleSendMessage = async () => {
         if (!message.trim() && !audioBlob) return;
-        
+
         const token = localStorage.getItem('token');
         if (!token) {
             alert(isRTL ? 'يرجى تسجيل الدخول أولاً' : 'Please login first');
             return;
         }
-        
+
         setIsSending(true);
         try {
             const formData = new FormData();
-            
+
             if (message.trim()) {
                 formData.append('content', message);
             }
-            
+
             if (audioBlob) {
                 formData.append('file', audioBlob, 'voice_message.webm');
             }
@@ -168,7 +168,7 @@ const CommunityHub = () => {
                     'Content-Type': 'multipart/form-data'
                 }
             });
-            
+
             setMessage('');
             cancelRecording();
             fetchFeed();
@@ -192,8 +192,8 @@ const CommunityHub = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
             // Update the post's like count locally
-            setPosts(posts.map(post => 
-                post.id === postId 
+            setPosts(posts.map(post =>
+                post.id === postId
                     ? { ...post, likes_count: (post.likes_count || 0) + 1 }
                     : post
             ));
@@ -223,7 +223,7 @@ const CommunityHub = () => {
     const fetchConversations = async () => {
         const token = localStorage.getItem('token');
         if (!token) return;
-        
+
         setIsDMLoading(true);
         try {
             const response = await axios.get(`${API_URL}/v1/${TENANT}/dm/conversations`, {
@@ -240,7 +240,7 @@ const CommunityHub = () => {
     const fetchAvailableUsers = async () => {
         const token = localStorage.getItem('token');
         if (!token) return;
-        
+
         try {
             const response = await axios.get(`${API_URL}/v1/${TENANT}/dm/users`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -254,7 +254,7 @@ const CommunityHub = () => {
     const fetchDMMessages = async (userId) => {
         const token = localStorage.getItem('token');
         if (!token) return;
-        
+
         try {
             const response = await axios.get(`${API_URL}/v1/${TENANT}/dm/messages/${userId}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -268,7 +268,7 @@ const CommunityHub = () => {
     const handleSendDM = async () => {
         const token = localStorage.getItem('token');
         if (!token || !selectedConversation || (!dmText.trim() && !audioBlob)) return;
-        
+
         setIsSendingDM(true);
         try {
             const formData = new FormData();
@@ -278,7 +278,7 @@ const CommunityHub = () => {
             if (audioBlob) {
                 formData.append('file', audioBlob, 'voice_message.webm');
             }
-            
+
             await axios.post(
                 `${API_URL}/v1/${TENANT}/dm/messages/${selectedConversation.id}`,
                 formData,
@@ -289,7 +289,7 @@ const CommunityHub = () => {
                     }
                 }
             );
-            
+
             setDmText('');
             setAudioBlob(null);
             setAudioUrl(null);
@@ -343,23 +343,23 @@ const CommunityHub = () => {
             alert(isRTL ? 'الرمز مطلوب' : 'Symbol is required');
             return;
         }
-        
+
         const token = localStorage.getItem('token');
         if (!token) {
             alert(isRTL ? 'يرجى تسجيل الدخول أولاً' : 'Please login first');
             return;
         }
-        
+
         setIsPublishing(true);
         try {
             const formData = new FormData();
             formData.append('symbol', publishForm.symbol);
             formData.append('description', publishForm.description);
-            
+
             if (publishForm.win_rate) {
                 formData.append('win_rate', publishForm.win_rate);
             }
-            
+
             if (screenshotFile) {
                 formData.append('screenshot', screenshotFile);
             }
@@ -370,7 +370,7 @@ const CommunityHub = () => {
                     'Content-Type': 'multipart/form-data'
                 }
             });
-            
+
             setShowPublishModal(false);
             setPublishForm({ symbol: '', description: '', win_rate: '' });
             setScreenshotFile(null);
@@ -450,7 +450,7 @@ const CommunityHub = () => {
                             {activeGroup.replace('#', '')}
                         </h3>
                         <div className="flex gap-4 text-slate-400">
-                            <button 
+                            <button
                                 onClick={openDMPanel}
                                 className="hover:text-white cursor-pointer relative"
                                 title={isRTL ? 'الرسائل المباشرة' : 'Direct Messages'}
@@ -479,128 +479,128 @@ const CommunityHub = () => {
                                 </p>
                             </div>
                         ) : (
-                        posts.map((post) => (
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                key={post.id}
-                                className={`flex gap-4 group ${isRTL ? 'flex-row-reverse' : ''}`}
-                            >
-                                <img
-                                    src={post.author.avatar_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${post.author.name}`}
-                                    className="w-10 h-10 rounded-xl bg-slate-800 border border-white/5 shadow-lg"
-                                    alt="avatar"
-                                />
-                                <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
-                                    <div className={`flex items-center gap-2 mb-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                                        <span className="font-bold hover:underline cursor-pointer">{post.author.name}</span>
-                                        {post.author.role === 'admin' && (
-                                            <ShieldCheck size={14} className="text-blue-400" />
+                            posts.map((post) => (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    key={post.id}
+                                    className={`flex gap-4 group ${isRTL ? 'flex-row-reverse' : ''}`}
+                                >
+                                    <img
+                                        src={post.author.avatar_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${post.author.name}`}
+                                        className="w-10 h-10 rounded-xl bg-slate-800 border border-white/5 shadow-lg"
+                                        alt="avatar"
+                                    />
+                                    <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
+                                        <div className={`flex items-center gap-2 mb-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                                            <span className="font-bold hover:underline cursor-pointer">{post.author.name}</span>
+                                            {post.author.role === 'admin' && (
+                                                <ShieldCheck size={14} className="text-blue-400" />
+                                            )}
+                                            <span className="text-xs text-slate-500">
+                                                {new Date(post.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
+
+                                        {post.content && (
+                                            <p className="text-slate-300 leading-relaxed mb-3">{post.content}</p>
                                         )}
-                                        <span className="text-xs text-slate-500">
-                                            {new Date(post.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
-                                    </div>
 
-                                    {post.content && (
-                                        <p className="text-slate-300 leading-relaxed mb-3">{post.content}</p>
-                                    )}
-
-                                    {post.media_type === 'VOICE' && post.media_url && (
-                                        <div className={`bg-white/5 border border-white/10 rounded-2xl p-3 max-w-sm flex items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                                            <audio src={post.media_url} controls className="flex-1 h-10" />
-                                        </div>
-                                    )}
-
-                                    {post.media_type === 'IMAGE' && post.media_url && (
-                                        <div className="relative max-w-md rounded-2xl overflow-hidden border border-white/10 shadow-lg group/img">
-                                            <img 
-                                                src={post.media_url} 
-                                                alt="Shared image" 
-                                                className="w-full h-auto object-cover group-hover/img:scale-105 transition-transform duration-300"
-                                            />
-                                        </div>
-                                    )}
-
-                                    {post.media_type === 'VOICE' && !post.media_url && (
-                                        <div className={`bg-white/5 border border-white/10 rounded-2xl p-3 max-w-sm flex items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                                            <button className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center hover:bg-blue-600 transition-colors">
-                                                <Play size={20} fill="white" />
-                                            </button>
-                                            <div className="flex-1 h-8 flex items-center gap-1">
-                                                {[...Array(20)].map((_, i) => (
-                                                    <div
-                                                        key={i}
-                                                        className="w-1 bg-blue-500/40 rounded-full"
-                                                        style={{ height: `${Math.random() * 100}%` }}
-                                                    />
-                                                ))}
+                                        {post.media_type === 'VOICE' && post.media_url && (
+                                            <div className={`bg-white/5 border border-white/10 rounded-2xl p-3 max-w-sm flex items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                                                <audio src={post.media_url} controls className="flex-1 h-10" />
                                             </div>
-                                            <span className="text-xs text-slate-400">0:42</span>
-                                        </div>
-                                    )}
+                                        )}
 
-                                    {post.media_type === 'STRATEGY' && post.strategy && (
-                                        <motion.div
-                                            layout
-                                            className="bg-gradient-to-br from-slate-900 to-black border border-white/10 rounded-2xl overflow-hidden max-w-md shadow-2xl group/card"
-                                        >
-                                            <div className="relative h-40 bg-slate-800">
+                                        {post.media_type === 'IMAGE' && post.media_url && (
+                                            <div className="relative max-w-md rounded-2xl overflow-hidden border border-white/10 shadow-lg group/img">
                                                 <img
-                                                    src={post.strategy.screenshot_url || "https://images.unsplash.com/photo-1611974714658-058f40da01f1?w=800&auto=format&fit=crop&q=60"}
-                                                    className="w-full h-full object-cover opacity-60 group-hover/card:scale-105 transition-transform duration-500"
-                                                    alt="Strategy"
+                                                    src={post.media_url}
+                                                    alt="Shared image"
+                                                    className="w-full h-auto object-cover group-hover/img:scale-105 transition-transform duration-300"
                                                 />
-                                                <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
-                                                <div className={`absolute bottom-3 ${isRTL ? 'right-3' : 'left-3'} flex items-center gap-2`}>
-                                                    <div className="px-2 py-1 bg-blue-500 text-[10px] font-bold rounded uppercase tracking-wider shadow-lg">
-                                                        {post.strategy.symbol}
-                                                    </div>
-                                                </div>
                                             </div>
-                                            <div className="p-4">
-                                                <div className={`flex justify-between items-start mb-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                                                    <h4 className="font-bold text-lg">{post.strategy.symbol} Strategy</h4>
-                                                    <div className="flex items-center gap-1 text-green-400 font-mono text-sm bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20">
-                                                        <TrendingUp size={14} />
-                                                        {post.strategy.win_rate}% WR
-                                                    </div>
-                                                </div>
-                                                <p className="text-sm text-slate-400 line-clamp-2 mb-4">
-                                                    {post.strategy.description || "Experimental strategy using multi-timeframe EMA crossovers and RSI divergence detection."}
-                                                </p>
-                                                <Button
-                                                    variant="secondary"
-                                                    className={`w-full py-2 flex items-center justify-center gap-2 bg-white/5 border-white/10 hover:bg-white/10 ${isRTL ? 'flex-row-reverse' : ''}`}
-                                                    onClick={() => setSelectedStrategy(post.strategy)}
-                                                >
-                                                    <Eye size={16} />
-                                                    {isRTL ? 'عرض الإعداد' : 'View Setup'}
-                                                </Button>
-                                            </div>
-                                        </motion.div>
-                                    )}
+                                        )}
 
-                                    {/* Post Actions */}
-                                    <div className={`flex items-center gap-4 mt-3 pt-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                                        <button 
-                                            onClick={() => handleLikePost(post.id)}
-                                            className="flex items-center gap-1.5 text-slate-500 hover:text-blue-400 transition-colors group"
-                                        >
-                                            <ThumbsUp size={16} className="group-hover:scale-110 transition-transform" />
-                                            <span className="text-xs">{post.likes_count || 0}</span>
-                                        </button>
-                                        <button className="flex items-center gap-1.5 text-slate-500 hover:text-green-400 transition-colors group">
-                                            <MessageSquare size={16} className="group-hover:scale-110 transition-transform" />
-                                            <span className="text-xs">{post.comments_count || 0}</span>
-                                        </button>
-                                        <button className="flex items-center gap-1.5 text-slate-500 hover:text-purple-400 transition-colors group">
-                                            <Share2 size={16} className="group-hover:scale-110 transition-transform" />
-                                        </button>
+                                        {post.media_type === 'VOICE' && !post.media_url && (
+                                            <div className={`bg-white/5 border border-white/10 rounded-2xl p-3 max-w-sm flex items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                                                <button className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center hover:bg-blue-600 transition-colors">
+                                                    <Play size={20} fill="white" />
+                                                </button>
+                                                <div className="flex-1 h-8 flex items-center gap-1">
+                                                    {[...Array(20)].map((_, i) => (
+                                                        <div
+                                                            key={i}
+                                                            className="w-1 bg-blue-500/40 rounded-full"
+                                                            style={{ height: `${Math.random() * 100}%` }}
+                                                        />
+                                                    ))}
+                                                </div>
+                                                <span className="text-xs text-slate-400">0:42</span>
+                                            </div>
+                                        )}
+
+                                        {post.media_type === 'STRATEGY' && post.strategy && (
+                                            <motion.div
+                                                layout
+                                                className="bg-gradient-to-br from-slate-900 to-black border border-white/10 rounded-2xl overflow-hidden max-w-md shadow-2xl group/card"
+                                            >
+                                                <div className="relative h-40 bg-slate-800">
+                                                    <img
+                                                        src={post.strategy.screenshot_url || "https://images.unsplash.com/photo-1611974714658-058f40da01f1?w=800&auto=format&fit=crop&q=60"}
+                                                        className="w-full h-full object-cover opacity-60 group-hover/card:scale-105 transition-transform duration-500"
+                                                        alt="Strategy"
+                                                    />
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+                                                    <div className={`absolute bottom-3 ${isRTL ? 'right-3' : 'left-3'} flex items-center gap-2`}>
+                                                        <div className="px-2 py-1 bg-blue-500 text-[10px] font-bold rounded uppercase tracking-wider shadow-lg">
+                                                            {post.strategy.symbol}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="p-4">
+                                                    <div className={`flex justify-between items-start mb-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                                                        <h4 className="font-bold text-lg">{post.strategy.symbol} Strategy</h4>
+                                                        <div className="flex items-center gap-1 text-green-400 font-mono text-sm bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20">
+                                                            <TrendingUp size={14} />
+                                                            {post.strategy.win_rate}% WR
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-sm text-slate-400 line-clamp-2 mb-4">
+                                                        {post.strategy.description || "Experimental strategy using multi-timeframe EMA crossovers and RSI divergence detection."}
+                                                    </p>
+                                                    <Button
+                                                        variant="secondary"
+                                                        className={`w-full py-2 flex items-center justify-center gap-2 bg-white/5 border-white/10 hover:bg-white/10 ${isRTL ? 'flex-row-reverse' : ''}`}
+                                                        onClick={() => setSelectedStrategy(post.strategy)}
+                                                    >
+                                                        <Eye size={16} />
+                                                        {isRTL ? 'عرض الإعداد' : 'View Setup'}
+                                                    </Button>
+                                                </div>
+                                            </motion.div>
+                                        )}
+
+                                        {/* Post Actions */}
+                                        <div className={`flex items-center gap-4 mt-3 pt-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                                            <button
+                                                onClick={() => handleLikePost(post.id)}
+                                                className="flex items-center gap-1.5 text-slate-500 hover:text-blue-400 transition-colors group"
+                                            >
+                                                <ThumbsUp size={16} className="group-hover:scale-110 transition-transform" />
+                                                <span className="text-xs">{post.likes_count || 0}</span>
+                                            </button>
+                                            <button className="flex items-center gap-1.5 text-slate-500 hover:text-green-400 transition-colors group">
+                                                <MessageSquare size={16} className="group-hover:scale-110 transition-transform" />
+                                                <span className="text-xs">{post.comments_count || 0}</span>
+                                            </button>
+                                            <button className="flex items-center gap-1.5 text-slate-500 hover:text-purple-400 transition-colors group">
+                                                <Share2 size={16} className="group-hover:scale-110 transition-transform" />
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
-                            </motion.div>
-                        ))
+                                </motion.div>
+                            ))
                         )}
                     </div>
 
@@ -618,7 +618,7 @@ const CommunityHub = () => {
                                 </button>
                             </div>
                         )}
-                        
+
                         {/* Recording Indicator */}
                         {isRecording && (
                             <div className={`max-w-4xl mx-auto mb-3 flex items-center gap-3 bg-red-500/10 border border-red-500/30 rounded-2xl p-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
@@ -633,7 +633,7 @@ const CommunityHub = () => {
                                 </button>
                             </div>
                         )}
-                        
+
                         <div className={`max-w-4xl mx-auto relative flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl p-2 px-4 shadow-2xl focus-within:border-blue-500/50 transition-all ${isRTL ? 'flex-row-reverse' : ''}`}>
                             <button
                                 className={`p-2 rounded-xl transition-colors ${isRecording ? 'bg-red-500 text-white animate-pulse' : audioBlob ? 'bg-green-500 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
@@ -652,9 +652,9 @@ const CommunityHub = () => {
                                 disabled={isRecording || isSending}
                             />
                             <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                                <PlusCircle 
-                                    size={20} 
-                                    className="text-slate-500 hover:text-blue-400 cursor-pointer transition-colors" 
+                                <PlusCircle
+                                    size={20}
+                                    className="text-slate-500 hover:text-blue-400 cursor-pointer transition-colors"
                                     onClick={() => setShowPublishModal(true)}
                                 />
                                 <button
@@ -698,29 +698,29 @@ const CommunityHub = () => {
                                     {isRTL ? 'لا توجد استراتيجيات بعد' : 'No strategies yet'}
                                 </div>
                             ) : (
-                            topStrategies.map((strat, i) => (
-                                <div key={strat.id} className="p-3 rounded-2xl bg-white/5 border border-white/10 hover:border-blue-500/30 transition-all group overflow-hidden relative cursor-pointer">
-                                    <div className="absolute top-0 right-0 p-2 opacity-10">
-                                        <TrendingUp size={40} />
+                                topStrategies.map((strat, i) => (
+                                    <div key={strat.id} className="p-3 rounded-2xl bg-white/5 border border-white/10 hover:border-blue-500/30 transition-all group overflow-hidden relative cursor-pointer">
+                                        <div className="absolute top-0 right-0 p-2 opacity-10">
+                                            <TrendingUp size={40} />
+                                        </div>
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className="font-bold text-xs uppercase tracking-widest text-blue-400">{strat.symbol}</span>
+                                            <span className="text-[10px] text-slate-500">by {strat.author}</span>
+                                        </div>
+                                        <div className="flex items-end justify-between">
+                                            <div className="text-2xl font-mono font-bold">{strat.win_rate || 0}%</div>
+                                            <button
+                                                onClick={() => handleVoteStrategy(strat.id)}
+                                                className="text-[10px] text-slate-400 flex items-center gap-1 hover:text-blue-400 transition-colors"
+                                            >
+                                                <ThumbsUp size={10} /> {strat.votes_count || 0} votes
+                                            </button>
+                                        </div>
+                                        <div className="w-full h-1 bg-white/5 rounded-full mt-2 overflow-hidden">
+                                            <div className="h-full bg-blue-500" style={{ width: `${strat.win_rate || 0}%` }} />
+                                        </div>
                                     </div>
-                                    <div className="flex justify-between items-center mb-1">
-                                        <span className="font-bold text-xs uppercase tracking-widest text-blue-400">{strat.symbol}</span>
-                                        <span className="text-[10px] text-slate-500">by {strat.author}</span>
-                                    </div>
-                                    <div className="flex items-end justify-between">
-                                        <div className="text-2xl font-mono font-bold">{strat.win_rate || 0}%</div>
-                                        <button 
-                                            onClick={() => handleVoteStrategy(strat.id)}
-                                            className="text-[10px] text-slate-400 flex items-center gap-1 hover:text-blue-400 transition-colors"
-                                        >
-                                            <ThumbsUp size={10} /> {strat.votes_count || 0} votes
-                                        </button>
-                                    </div>
-                                    <div className="w-full h-1 bg-white/5 rounded-full mt-2 overflow-hidden">
-                                        <div className="h-full bg-blue-500" style={{ width: `${strat.win_rate || 0}%` }} />
-                                    </div>
-                                </div>
-                            ))
+                                ))
                             )}
                         </div>
                     </div>
@@ -825,9 +825,9 @@ const CommunityHub = () => {
                                 </div>
 
                                 <div className="pt-4 flex gap-4">
-                                    <Button 
-                                        variant="secondary" 
-                                        className="flex-1" 
+                                    <Button
+                                        variant="secondary"
+                                        className="flex-1"
                                         onClick={() => {
                                             setShowPublishModal(false);
                                             setPublishForm({ symbol: '', description: '', win_rate: '' });
@@ -837,8 +837,8 @@ const CommunityHub = () => {
                                     >
                                         {isRTL ? 'إلغاء' : 'Cancel'}
                                     </Button>
-                                    <Button 
-                                        className="flex-1 flex items-center justify-center gap-2" 
+                                    <Button
+                                        className="flex-1 flex items-center justify-center gap-2"
                                         onClick={handlePublishStrategy}
                                         disabled={isPublishing || !publishForm.symbol.trim()}
                                     >
@@ -872,13 +872,13 @@ const CommunityHub = () => {
                         <div className="p-4 border-b border-white/10 flex items-center gap-3">
                             {selectedConversation ? (
                                 <>
-                                    <button 
+                                    <button
                                         onClick={() => setSelectedConversation(null)}
                                         className="p-2 hover:bg-white/5 rounded-lg transition-colors"
                                     >
                                         <ArrowLeft size={20} />
                                     </button>
-                                    <img 
+                                    <img
                                         src={selectedConversation.avatar_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${selectedConversation.name}`}
                                         className="w-10 h-10 rounded-full"
                                         alt={selectedConversation.name}
@@ -894,7 +894,7 @@ const CommunityHub = () => {
                                     <h3 className="font-bold flex-1">{isRTL ? 'الرسائل المباشرة' : 'Direct Messages'}</h3>
                                 </>
                             )}
-                            <button 
+                            <button
                                 onClick={() => { setShowDMPanel(false); setSelectedConversation(null); }}
                                 className="p-2 hover:bg-white/5 rounded-lg transition-colors"
                             >
@@ -914,15 +914,14 @@ const CommunityHub = () => {
                                             </div>
                                         ) : (
                                             dmMessages.map(msg => (
-                                                <div 
+                                                <div
                                                     key={msg.id}
                                                     className={`flex ${msg.is_mine ? 'justify-end' : 'justify-start'}`}
                                                 >
-                                                    <div className={`max-w-[75%] rounded-2xl p-3 ${
-                                                        msg.is_mine 
-                                                            ? 'bg-blue-600 text-white' 
+                                                    <div className={`max-w-[75%] rounded-2xl p-3 ${msg.is_mine
+                                                            ? 'bg-blue-600 text-white'
                                                             : 'bg-white/10 text-slate-200'
-                                                    }`}>
+                                                        }`}>
                                                         {msg.content && <p className="text-sm">{msg.content}</p>}
                                                         {msg.media_type === 'VOICE' && msg.media_url && (
                                                             <audio src={msg.media_url} controls className="max-w-full h-8 mt-2" />
@@ -938,11 +937,11 @@ const CommunityHub = () => {
                                             ))
                                         )}
                                     </div>
-                                    
+
                                     {/* DM Input */}
                                     <div className="p-4 border-t border-white/10">
                                         <div className="flex items-center gap-2 bg-white/5 rounded-xl p-2">
-                                            <input 
+                                            <input
                                                 type="text"
                                                 value={dmText}
                                                 onChange={e => setDmText(e.target.value)}
@@ -979,7 +978,7 @@ const CommunityHub = () => {
                                                     onClick={() => startConversation(user)}
                                                     className="w-full flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg transition-colors"
                                                 >
-                                                    <img 
+                                                    <img
                                                         src={user.avatar_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${user.name}`}
                                                         className="w-10 h-10 rounded-full"
                                                         alt={user.name}
@@ -1007,7 +1006,7 @@ const CommunityHub = () => {
                                                         className="w-full flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg transition-colors"
                                                     >
                                                         <div className="relative">
-                                                            <img 
+                                                            <img
                                                                 src={conv.user.avatar_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${conv.user.name}`}
                                                                 className="w-10 h-10 rounded-full"
                                                                 alt={conv.user.name}

@@ -10,7 +10,7 @@ import {
 import axios from 'axios';
 import { useLanguage } from '../context/LanguageContext';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 const TENANT = 'default';
 
 const AcademyDashboard = () => {
@@ -33,13 +33,13 @@ const AcademyDashboard = () => {
         try {
             const token = localStorage.getItem('token');
             const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            
+
             const [coursesRes, statsRes, recsRes] = await Promise.allSettled([
                 axios.get(`${API_URL}/v1/${TENANT}/academy/courses`, { headers }),
                 token ? axios.get(`${API_URL}/v1/${TENANT}/academy/me/stats`, { headers }) : Promise.resolve({ data: null }),
                 token ? axios.get(`${API_URL}/v1/${TENANT}/academy/me/recommendations`, { headers }) : Promise.resolve({ data: [] })
             ]);
-            
+
             if (coursesRes.status === 'fulfilled') setCourses(coursesRes.value.data || []);
             if (statsRes.status === 'fulfilled' && statsRes.value.data) setUserStats(statsRes.value.data);
             if (recsRes.status === 'fulfilled') setRecommendations(recsRes.value.data || []);
@@ -56,7 +56,7 @@ const AcademyDashboard = () => {
             alert('Please login first');
             return;
         }
-        
+
         try {
             const response = await axios.post(
                 `${API_URL}/v1/${TENANT}/academy/me/recommendations/analyze`,
@@ -97,13 +97,13 @@ const AcademyDashboard = () => {
     }
 
     return (
-        <div 
+        <div
             className="min-h-screen bg-black text-white overflow-hidden"
             onMouseMove={handleMouseMove}
         >
             {/* Animated Background */}
             <div className="fixed inset-0 pointer-events-none">
-                <div 
+                <div
                     className="absolute w-[800px] h-[800px] rounded-full opacity-10"
                     style={{
                         background: `radial-gradient(circle, rgba(59, 130, 246, 0.4), transparent 70%)`,
@@ -117,7 +117,7 @@ const AcademyDashboard = () => {
             {/* Hero Section - AI Journey */}
             <section className="relative pt-8 pb-16 px-6">
                 <div className="max-w-7xl mx-auto">
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-black border border-white/10 p-8 md:p-12"
@@ -127,10 +127,10 @@ const AcademyDashboard = () => {
                             <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
                                 <defs>
                                     <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
-                                        <path d="M 10 0 L 0 0 0 10" fill="none" stroke="white" strokeWidth="0.5"/>
+                                        <path d="M 10 0 L 0 0 0 10" fill="none" stroke="white" strokeWidth="0.5" />
                                     </pattern>
                                 </defs>
-                                <rect width="100" height="100" fill="url(#grid)"/>
+                                <rect width="100" height="100" fill="url(#grid)" />
                             </svg>
                         </div>
 
@@ -141,17 +141,17 @@ const AcademyDashboard = () => {
                                     <Sparkles size={16} />
                                     Centre d'Apprentissage MasterClass
                                 </div>
-                                
+
                                 <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
                                     Votre Parcours IA
                                 </h1>
-                                
+
                                 <p className="text-lg text-slate-400 mb-8 max-w-xl">
                                     TradeSense AI inclut une académie complète avec des cours de haute qualité pour vous transformer en trader professionnel.
                                 </p>
 
                                 {userStats?.current_lesson && (
-                                    <motion.button 
+                                    <motion.button
                                         whileHover={{ scale: 1.02 }}
                                         whileTap={{ scale: 0.98 }}
                                         onClick={() => navigate(`/academy/lesson/${userStats.current_lesson.id}`)}
@@ -166,7 +166,7 @@ const AcademyDashboard = () => {
 
                             {/* Right: XP Circle */}
                             <div className="relative">
-                                <motion.div 
+                                <motion.div
                                     initial={{ scale: 0.8, opacity: 0 }}
                                     animate={{ scale: 1, opacity: 1 }}
                                     transition={{ delay: 0.2 }}
@@ -199,7 +199,7 @@ const AcademyDashboard = () => {
                                             </linearGradient>
                                         </defs>
                                     </svg>
-                                    
+
                                     {/* Center Content */}
                                     <div className="absolute inset-0 flex flex-col items-center justify-center">
                                         <span className="text-5xl font-bold bg-gradient-to-br from-white to-slate-300 bg-clip-text text-transparent">
@@ -245,7 +245,7 @@ const AcademyDashboard = () => {
                                 <Brain className="text-purple-500" />
                                 Recommandations IA pour Vous
                             </h2>
-                            <button 
+                            <button
                                 onClick={analyzePatterns}
                                 className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-2"
                             >
@@ -253,7 +253,7 @@ const AcademyDashboard = () => {
                                 Analyser mes trades
                             </button>
                         </div>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {recommendations.map((rec, i) => (
                                 <motion.div
@@ -261,28 +261,26 @@ const AcademyDashboard = () => {
                                     initial={{ opacity: 0, x: -20 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: i * 0.1 }}
-                                    className={`p-4 rounded-2xl border ${
-                                        rec.priority === 'Critical' ? 'bg-red-500/10 border-red-500/30' :
-                                        rec.priority === 'High' ? 'bg-amber-500/10 border-amber-500/30' :
-                                        'bg-blue-500/10 border-blue-500/30'
-                                    }`}
+                                    className={`p-4 rounded-2xl border ${rec.priority === 'Critical' ? 'bg-red-500/10 border-red-500/30' :
+                                            rec.priority === 'High' ? 'bg-amber-500/10 border-amber-500/30' :
+                                                'bg-blue-500/10 border-blue-500/30'
+                                        }`}
                                 >
                                     <div className="flex items-start gap-3">
-                                        <div className={`p-2 rounded-xl ${
-                                            rec.priority === 'Critical' ? 'bg-red-500/20' :
-                                            rec.priority === 'High' ? 'bg-amber-500/20' :
-                                            'bg-blue-500/20'
-                                        }`}>
+                                        <div className={`p-2 rounded-xl ${rec.priority === 'Critical' ? 'bg-red-500/20' :
+                                                rec.priority === 'High' ? 'bg-amber-500/20' :
+                                                    'bg-blue-500/20'
+                                            }`}>
                                             <AlertTriangle size={20} className={
                                                 rec.priority === 'Critical' ? 'text-red-400' :
-                                                rec.priority === 'High' ? 'text-amber-400' :
-                                                'text-blue-400'
+                                                    rec.priority === 'High' ? 'text-amber-400' :
+                                                        'text-blue-400'
                                             } />
                                         </div>
                                         <div className="flex-1">
                                             <h4 className="font-semibold mb-1">{rec.course?.title}</h4>
                                             <p className="text-sm text-slate-400">{rec.reason}</p>
-                                            <button 
+                                            <button
                                                 onClick={() => rec.course?.id && navigate(`/academy/course/${rec.course.id}`)}
                                                 className="mt-3 text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1"
                                             >
@@ -307,7 +305,7 @@ const AcademyDashboard = () => {
                         </h2>
                         <div className="flex gap-2">
                             {['Tous', 'Beginner', 'Pro', 'Elite'].map(filter => (
-                                <button 
+                                <button
                                     key={filter}
                                     className="px-4 py-2 text-sm rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
                                 >
@@ -320,7 +318,7 @@ const AcademyDashboard = () => {
                     {/* Bento Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {courses.map((course, i) => (
-                            <CourseCard 
+                            <CourseCard
                                 key={course.id}
                                 course={course}
                                 index={i}
@@ -356,11 +354,11 @@ const AcademyDashboard = () => {
                             <span className="font-bold text-lg">{userStats?.completed_lessons || 0}/{userStats?.total_lessons || 0}</span>
                         </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-3">
                         <span className="text-sm text-slate-400">Prochain niveau:</span>
                         <div className="w-32 h-2 bg-white/10 rounded-full overflow-hidden">
-                            <motion.div 
+                            <motion.div
                                 className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
                                 initial={{ width: 0 }}
                                 animate={{ width: `${userStats?.progress_percent || 0}%` }}
@@ -375,8 +373,8 @@ const AcademyDashboard = () => {
             {/* Course Detail Modal */}
             <AnimatePresence>
                 {selectedCourse && (
-                    <CourseModal 
-                        course={selectedCourse} 
+                    <CourseModal
+                        course={selectedCourse}
                         onClose={() => setSelectedCourse(null)}
                         difficultyBadgeColors={difficultyBadgeColors}
                     />
@@ -394,7 +392,7 @@ const CourseCard = ({ course, index, isHovered, onHover, onLeave, onClick, diffi
     useEffect(() => {
         if (videoRef.current) {
             if (isHovered) {
-                videoRef.current.play().catch(() => {});
+                videoRef.current.play().catch(() => { });
             } else {
                 videoRef.current.pause();
                 videoRef.current.currentTime = 0;
@@ -411,18 +409,17 @@ const CourseCard = ({ course, index, isHovered, onHover, onLeave, onClick, diffi
             onHoverStart={onHover}
             onHoverEnd={onLeave}
             onClick={onClick}
-            className={`relative rounded-2xl overflow-hidden cursor-pointer group ${
-                course.is_premium ? 'ring-2 ring-amber-500/50' : ''
-            }`}
+            className={`relative rounded-2xl overflow-hidden cursor-pointer group ${course.is_premium ? 'ring-2 ring-amber-500/50' : ''
+                }`}
         >
             {/* Thumbnail / Video Preview */}
             <div className="relative aspect-video overflow-hidden">
-                <img 
+                <img
                     src={course.thumbnail_url || 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800'}
                     alt={course.title}
                     className={`w-full h-full object-cover transition-opacity duration-500 ${isHovered ? 'opacity-0' : 'opacity-100'}`}
                 />
-                
+
                 {/* Video Preview (shows on hover) */}
                 {course.preview_video_url && (
                     <video
@@ -433,10 +430,10 @@ const CourseCard = ({ course, index, isHovered, onHover, onLeave, onClick, diffi
                         className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
                     />
                 )}
-                
+
                 {/* Gradient Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
-                
+
                 {/* Premium Badge */}
                 {course.is_premium && (
                     <div className="absolute top-3 right-3 px-3 py-1 bg-gradient-to-r from-amber-500 to-orange-500 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg">
@@ -444,16 +441,16 @@ const CourseCard = ({ course, index, isHovered, onHover, onLeave, onClick, diffi
                         PREMIUM
                     </div>
                 )}
-                
+
                 {/* Difficulty Badge */}
                 <div className={`absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-semibold border ${difficultyBadgeColors[course.difficulty]}`}>
                     {course.difficulty}
                 </div>
-                
+
                 {/* Play Button (on hover) */}
                 <AnimatePresence>
                     {isHovered && (
-                        <motion.div 
+                        <motion.div
                             initial={{ opacity: 0, scale: 0.8 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.8 }}
@@ -485,7 +482,7 @@ const CourseCard = ({ course, index, isHovered, onHover, onLeave, onClick, diffi
                 <p className="text-sm text-slate-400 line-clamp-2 mb-4">
                     {course.description}
                 </p>
-                
+
                 {/* Meta Info */}
                 <div className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-4 text-slate-500">
@@ -512,7 +509,7 @@ const CourseCard = ({ course, index, isHovered, onHover, onLeave, onClick, diffi
                             <span>{Math.round(course.user_progress)}%</span>
                         </div>
                         <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                            <div 
+                            <div
                                 className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
                                 style={{ width: `${course.user_progress}%` }}
                             />
@@ -547,14 +544,14 @@ const CourseModal = ({ course, onClose, difficultyBadgeColors }) => {
     };
 
     return (
-        <motion.div 
+        <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
         >
             <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
-            
+
             <motion.div
                 initial={{ scale: 0.9, y: 20 }}
                 animate={{ scale: 1, y: 0 }}
@@ -563,20 +560,20 @@ const CourseModal = ({ course, onClose, difficultyBadgeColors }) => {
             >
                 {/* Header Image */}
                 <div className="relative h-64">
-                    <img 
+                    <img
                         src={course.thumbnail_url || 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800'}
                         className="w-full h-full object-cover"
                         alt={course.title}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent" />
-                    
-                    <button 
+
+                    <button
                         onClick={onClose}
                         className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
                     >
                         <X size={20} />
                     </button>
-                    
+
                     <div className="absolute bottom-6 left-6 right-6">
                         <div className="flex items-center gap-3 mb-3">
                             <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${difficultyBadgeColors[course.difficulty]}`}>
@@ -591,11 +588,11 @@ const CourseModal = ({ course, onClose, difficultyBadgeColors }) => {
                         <h2 className="text-3xl font-bold">{course.title}</h2>
                     </div>
                 </div>
-                
+
                 {/* Content */}
                 <div className="p-6">
                     <p className="text-slate-400 mb-6">{course.description}</p>
-                    
+
                     {/* Stats */}
                     <div className="grid grid-cols-4 gap-4 mb-8">
                         <div className="p-4 bg-white/5 rounded-xl text-center">
@@ -619,7 +616,7 @@ const CourseModal = ({ course, onClose, difficultyBadgeColors }) => {
                             <div className="text-xs text-slate-500">XP</div>
                         </div>
                     </div>
-                    
+
                     {/* Modules List */}
                     {isLoading ? (
                         <div className="flex justify-center py-8">
@@ -631,7 +628,7 @@ const CourseModal = ({ course, onClose, difficultyBadgeColors }) => {
                                 <Target className="text-blue-500" />
                                 Contenu du Cours
                             </h3>
-                            
+
                             {courseDetails?.modules?.map((module, mi) => (
                                 <div key={module.id} className="border border-white/10 rounded-xl overflow-hidden">
                                     <div className="p-4 bg-white/5 font-semibold flex items-center gap-3">
@@ -642,7 +639,7 @@ const CourseModal = ({ course, onClose, difficultyBadgeColors }) => {
                                     </div>
                                     <div className="divide-y divide-white/5">
                                         {module.lessons.map((lesson, li) => (
-                                            <div 
+                                            <div
                                                 key={lesson.id}
                                                 onClick={() => navigate(`/academy/lesson/${lesson.id}`)}
                                                 className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
@@ -666,7 +663,7 @@ const CourseModal = ({ course, onClose, difficultyBadgeColors }) => {
                             ))}
                         </div>
                     )}
-                    
+
                     {/* CTA Button */}
                     <div className="mt-8 flex justify-center">
                         <motion.button
