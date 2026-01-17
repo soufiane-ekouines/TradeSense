@@ -2,14 +2,11 @@
 Flask==3.0.0
 Flask-Cors==4.0.0
 
-# Turso / LibSQL database driver (HTTP-based, no Rust compilation needed)
-libsql-client==0.3.1
-
 # Authentication
 PyJWT==2.8.0
 werkzeug==3.0.1
 
-# HTTP requests (for external APIs)
+# HTTP requests (for external APIs and Turso HTTP API)
 requests==2.31.0
 
 # Environment variables

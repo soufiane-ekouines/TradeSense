@@ -7,7 +7,6 @@ It connects to Turso (LibSQL) for the database via HTTP API.
 
 import os
 import sys
-import asyncio
 
 # Add the api directory to the path for imports
 api_dir = os.path.dirname(os.path.abspath(__file__))
@@ -18,98 +17,143 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from functools import wraps
 import json
-
-# Import libsql_client for Turso connection
-import libsql_client
+import requests as http_requests
 
 # ============================================
-# Turso Database Configuration
+# Turso Database Configuration (HTTP API)
 # ============================================
 
 TURSO_DATABASE_URL = os.environ.get('TURSO_DATABASE_URL', '')
 TURSO_AUTH_TOKEN = os.environ.get('TURSO_AUTH_TOKEN', '')
 
 
-def get_turso_url():
-    """Convert libsql:// URL to https:// for HTTP client."""
+def get_turso_http_url():
+    """Convert libsql:// URL to https:// for HTTP API."""
     url = TURSO_DATABASE_URL
     if url.startswith("libsql://"):
         url = url.replace("libsql://", "https://")
+    if not url.endswith("/"):
+        url += "/"
     return url
 
 
-def run_async(coro):
-    """Helper to run async code in sync context."""
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    return loop.run_until_complete(coro)
-
-
-async def _query_db_async(query, args=()):
-    """Execute a query and return results (async)."""
+def query_db(query, args=(), one=False):
+    """Execute a query using Turso HTTP API and return results."""
     if not TURSO_DATABASE_URL or not TURSO_AUTH_TOKEN:
         raise Exception("Turso credentials not configured")
     
-    async with libsql_client.create_client(
-        url=get_turso_url(),
-        auth_token=TURSO_AUTH_TOKEN
-    ) as client:
-        # Convert ? placeholders to positional for libsql-client
-        result = await client.execute(query, args)
+    url = get_turso_http_url()
+    
+    # Use Turso HTTP API (Hrana protocol)
+    headers = {
+        "Authorization": f"Bearer {TURSO_AUTH_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    
+    # Convert ? placeholders to named parameters for Hrana
+    # Build the request body
+    body = {
+        "statements": [
+            {
+                "q": query,
+                "params": list(args) if args else []
+            }
+        ]
+    }
+    
+    try:
+        response = http_requests.post(
+            f"{url}v2/pipeline",
+            headers=headers,
+            json=body,
+            timeout=10
+        )
+        response.raise_for_status()
+        data = response.json()
         
-        if not result.rows:
-            return []
+        # Parse the response
+        if not data.get("results") or len(data["results"]) == 0:
+            return None if one else []
         
-        # Get column names - handle both attribute and dict access
-        try:
-            columns = result.columns if hasattr(result, 'columns') else list(result.rows[0].keys()) if result.rows and hasattr(result.rows[0], 'keys') else None
-        except:
-            columns = None
+        result = data["results"][0]
+        
+        if result.get("type") == "error":
+            raise Exception(result.get("error", {}).get("message", "Database error"))
+        
+        if result.get("type") != "ok":
+            return None if one else []
+        
+        response_data = result.get("response", {}).get("result", {})
+        cols = response_data.get("cols", [])
+        rows = response_data.get("rows", [])
+        
+        if not rows:
+            return None if one else []
         
         # Convert to list of dicts
-        if columns:
-            rows = [dict(zip(columns, row)) for row in result.rows]
-        else:
-            # If rows are already dicts or have different structure
-            rows = []
-            for row in result.rows:
-                if hasattr(row, 'keys'):
-                    rows.append(dict(row))
-                elif hasattr(row, '_asdict'):
-                    rows.append(row._asdict())
+        column_names = [col.get("name") for col in cols]
+        result_rows = []
+        for row in rows:
+            row_dict = {}
+            for i, col in enumerate(column_names):
+                cell = row[i]
+                # Handle different value types from Hrana
+                if isinstance(cell, dict):
+                    row_dict[col] = cell.get("value")
                 else:
-                    # Try to convert tuple/list with column indices
-                    rows.append(row)
-        return rows
-
-
-async def _execute_db_async(query, args=()):
-    """Execute a write query (async)."""
-    if not TURSO_DATABASE_URL or not TURSO_AUTH_TOKEN:
-        raise Exception("Turso credentials not configured")
-    
-    async with libsql_client.create_client(
-        url=get_turso_url(),
-        auth_token=TURSO_AUTH_TOKEN
-    ) as client:
-        result = await client.execute(query, args)
-        return result.last_insert_rowid
-
-
-def query_db(query, args=(), one=False):
-    """Execute a query and return results (sync wrapper)."""
-    rows = run_async(_query_db_async(query, args))
-    if not rows:
-        return None if one else []
-    return rows[0] if one else rows
+                    row_dict[col] = cell
+            result_rows.append(row_dict)
+        
+        return result_rows[0] if one else result_rows
+        
+    except http_requests.exceptions.RequestException as e:
+        raise Exception(f"Database connection error: {str(e)}")
 
 
 def execute_db(query, args=()):
-    """Execute a write query (sync wrapper)."""
-    return run_async(_execute_db_async(query, args))
+    """Execute a write query using Turso HTTP API and return last insert ID."""
+    if not TURSO_DATABASE_URL or not TURSO_AUTH_TOKEN:
+        raise Exception("Turso credentials not configured")
+    
+    url = get_turso_http_url()
+    
+    headers = {
+        "Authorization": f"Bearer {TURSO_AUTH_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    
+    body = {
+        "statements": [
+            {
+                "q": query,
+                "params": list(args) if args else []
+            }
+        ]
+    }
+    
+    try:
+        response = http_requests.post(
+            f"{url}v2/pipeline",
+            headers=headers,
+            json=body,
+            timeout=10
+        )
+        response.raise_for_status()
+        data = response.json()
+        
+        if not data.get("results") or len(data["results"]) == 0:
+            return None
+        
+        result = data["results"][0]
+        
+        if result.get("type") == "error":
+            raise Exception(result.get("error", {}).get("message", "Database error"))
+        
+        response_data = result.get("response", {}).get("result", {})
+        return response_data.get("last_insert_rowid")
+        
+    except http_requests.exceptions.RequestException as e:
+        raise Exception(f"Database connection error: {str(e)}")
 
 
 # ============================================
