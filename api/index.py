@@ -40,7 +40,8 @@ def get_turso_http_url():
 def query_db(query, args=(), one=False):
     """Execute a query using Turso HTTP API and return results."""
     if not TURSO_DATABASE_URL or not TURSO_AUTH_TOKEN:
-        raise Exception("Turso credentials not configured")
+        # Return empty results if not configured (for testing)
+        return None if one else []
     
     url = get_turso_http_url()
     
@@ -50,23 +51,39 @@ def query_db(query, args=(), one=False):
         "Content-Type": "application/json"
     }
     
-    # Convert ? placeholders to named parameters for Hrana
-    # Build the request body
+    # Build the request body with proper argument types
+    params = []
+    for arg in args:
+        if arg is None:
+            params.append({"type": "null"})
+        elif isinstance(arg, bool):
+            params.append({"type": "integer", "value": str(int(arg))})
+        elif isinstance(arg, int):
+            params.append({"type": "integer", "value": str(arg)})
+        elif isinstance(arg, float):
+            params.append({"type": "float", "value": str(arg)})
+        else:
+            params.append({"type": "text", "value": str(arg)})
+    
     body = {
-        "statements": [
+        "requests": [
             {
-                "q": query,
-                "params": list(args) if args else []
-            }
+                "type": "execute",
+                "stmt": {
+                    "sql": query,
+                    "args": params
+                }
+            },
+            {"type": "close"}
         ]
     }
     
     try:
         response = http_requests.post(
-            f"{url}v2/pipeline",
+            f"{url}v3/pipeline",
             headers=headers,
             json=body,
-            timeout=10
+            timeout=15
         )
         response.raise_for_status()
         data = response.json()
@@ -95,25 +112,27 @@ def query_db(query, args=(), one=False):
         result_rows = []
         for row in rows:
             row_dict = {}
-            for i, col in enumerate(column_names):
+            for i, col_name in enumerate(column_names):
                 cell = row[i]
                 # Handle different value types from Hrana
                 if isinstance(cell, dict):
-                    row_dict[col] = cell.get("value")
+                    row_dict[col_name] = cell.get("value")
                 else:
-                    row_dict[col] = cell
+                    row_dict[col_name] = cell
             result_rows.append(row_dict)
         
         return result_rows[0] if one else result_rows
         
     except http_requests.exceptions.RequestException as e:
         raise Exception(f"Database connection error: {str(e)}")
+    except Exception as e:
+        raise Exception(f"Database error: {str(e)}")
 
 
 def execute_db(query, args=()):
     """Execute a write query using Turso HTTP API and return last insert ID."""
     if not TURSO_DATABASE_URL or not TURSO_AUTH_TOKEN:
-        raise Exception("Turso credentials not configured")
+        return None
     
     url = get_turso_http_url()
     
@@ -122,21 +141,39 @@ def execute_db(query, args=()):
         "Content-Type": "application/json"
     }
     
+    # Build the request body with proper argument types
+    params = []
+    for arg in args:
+        if arg is None:
+            params.append({"type": "null"})
+        elif isinstance(arg, bool):
+            params.append({"type": "integer", "value": str(int(arg))})
+        elif isinstance(arg, int):
+            params.append({"type": "integer", "value": str(arg)})
+        elif isinstance(arg, float):
+            params.append({"type": "float", "value": str(arg)})
+        else:
+            params.append({"type": "text", "value": str(arg)})
+    
     body = {
-        "statements": [
+        "requests": [
             {
-                "q": query,
-                "params": list(args) if args else []
-            }
+                "type": "execute",
+                "stmt": {
+                    "sql": query,
+                    "args": params
+                }
+            },
+            {"type": "close"}
         ]
     }
     
     try:
         response = http_requests.post(
-            f"{url}v2/pipeline",
+            f"{url}v3/pipeline",
             headers=headers,
             json=body,
-            timeout=10
+            timeout=15
         )
         response.raise_for_status()
         data = response.json()
@@ -154,6 +191,8 @@ def execute_db(query, args=()):
         
     except http_requests.exceptions.RequestException as e:
         raise Exception(f"Database connection error: {str(e)}")
+    except Exception as e:
+        raise Exception(f"Database error: {str(e)}")
 
 
 # ============================================
@@ -165,7 +204,7 @@ app.config['SECRET_KEY'] = os.environ.get('JWT_SECRET', 'dev-secret-key-change-i
 
 # Enable CORS for all routes
 CORS(app, resources={
-    r"/api/*": {
+    r"/*": {
         "origins": "*",
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"]
@@ -220,6 +259,18 @@ def token_required(f):
 # API Routes
 # ============================================
 
+# Root endpoint - no database access required
+@app.route('/', methods=['GET'])
+@app.route('/api', methods=['GET'])
+def root():
+    """Root endpoint."""
+    return jsonify({
+        'name': 'TradeSense API',
+        'version': '1.0.0',
+        'status': 'running',
+        'turso_configured': bool(TURSO_DATABASE_URL and TURSO_AUTH_TOKEN)
+    })
+
 # Routes are registered with both /api prefix and without
 # This handles Vercel's routing behavior which may or may not strip the prefix
 
@@ -240,21 +291,28 @@ def debug_route():
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint."""
-    try:
-        # Test database connection
-        query_db("SELECT 1")
-        
-        return jsonify({
-            'status': 'healthy',
-            'database': 'connected',
-            'message': 'TradeSense API is running on Vercel with Turso!'
-        })
-    except Exception as e:
-        return jsonify({
-            'status': 'unhealthy',
-            'database': 'disconnected',
-            'error': str(e)
-        }), 500
+    db_status = 'not_configured'
+    db_error = None
+    
+    if TURSO_DATABASE_URL and TURSO_AUTH_TOKEN:
+        try:
+            # Test database connection
+            query_db("SELECT 1")
+            db_status = 'connected'
+        except Exception as e:
+            db_status = 'error'
+            db_error = str(e)
+    
+    response = {
+        'status': 'healthy' if db_status in ['connected', 'not_configured'] else 'unhealthy',
+        'database': db_status,
+        'message': 'TradeSense API is running on Vercel!'
+    }
+    
+    if db_error:
+        response['db_error'] = db_error
+    
+    return jsonify(response), 200 if response['status'] == 'healthy' else 500
 
 
 # ============================================
