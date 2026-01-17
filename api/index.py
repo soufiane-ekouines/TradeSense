@@ -78,6 +78,42 @@ def get_db():
         return None
 
 
+def init_challenges_table():
+    """Ensure the challenges table exists with the correct schema."""
+    client = get_db()
+    if not client:
+        print("[DB ERROR] Cannot init challenges table - no client")
+        return False
+    
+    try:
+        client.execute('''
+            CREATE TABLE IF NOT EXISTS challenges (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                plan_id INTEGER,
+                start_balance REAL NOT NULL,
+                equity REAL NOT NULL,
+                max_drawdown REAL DEFAULT 0.10,
+                profit_target REAL DEFAULT 0.10,
+                status TEXT DEFAULT 'active',
+                end_date TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                passed_at TEXT,
+                failed_at TEXT
+            )
+        ''')
+        print("[DB] Challenges table initialized successfully")
+        return True
+    except Exception as e:
+        print(f"[DB ERROR] Failed to init challenges table: {str(e)}")
+        return False
+    finally:
+        try:
+            client.close()
+        except:
+            pass
+
+
 def query_db(query, args=(), one=False):
     """Execute a query and return results."""
     client = get_db()
@@ -85,18 +121,41 @@ def query_db(query, args=(), one=False):
         return None if one else []
     
     try:
+        print(f"[DB DEBUG] Query: {query}")
+        print(f"[DB DEBUG] Args: {args}")
+        
         result = client.execute(query, args)
         
-        if not result.rows:
+        print(f"[DB DEBUG] Result type: {type(result)}")
+        print(f"[DB DEBUG] Result dir: {[attr for attr in dir(result) if not attr.startswith('_')]}")
+        
+        # Handle libsql_client result format
+        rows_data = []
+        columns = []
+        
+        # Try different ways to access the result
+        if hasattr(result, 'rows'):
+            rows_data = result.rows
+            print(f"[DB DEBUG] rows_data from .rows: {rows_data}")
+        
+        if hasattr(result, 'columns'):
+            columns = result.columns
+            print(f"[DB DEBUG] columns: {columns}")
+        elif hasattr(result, 'column_names'):
+            columns = result.column_names
+            print(f"[DB DEBUG] columns from column_names: {columns}")
+        
+        if not rows_data:
             return None if one else []
         
-        columns = result.columns
-        rows = [dict(zip(columns, row)) for row in result.rows]
+        # Convert to list of dicts
+        rows = [dict(zip(columns, row)) for row in rows_data]
         return rows[0] if one else rows
     except Exception as e:
         print(f"[DB ERROR] Query failed: {str(e)}")
+        print(f"[DB ERROR] Exception type: {type(e).__name__}")
         print(f"[DB ERROR] Query was: {query}")
-        raise e
+        return None if one else []
     finally:
         try:
             client.close()
@@ -118,26 +177,49 @@ def execute_db(query, args=()):
         
         result = client.execute(query, args)
         
+        print(f"[DB DEBUG] Result type: {type(result)}")
+        print(f"[DB DEBUG] Result attributes: {[attr for attr in dir(result) if not attr.startswith('_')]}")
+        
         # Handle different result formats from libsql_client
         if result is None:
             print("[DB DEBUG] Result is None, returning None")
             return None
         
-        # Try to get last_insert_rowid, handle different result types
+        # For libsql_client 0.3.x, check for last_insert_rowid or rowid attribute
+        row_id = None
+        
         if hasattr(result, 'last_insert_rowid'):
             row_id = result.last_insert_rowid
-            print(f"[DB DEBUG] Insert successful, last_insert_rowid: {row_id}")
-            return row_id
-        elif hasattr(result, 'rows') and len(result.rows) > 0:
-            print(f"[DB DEBUG] Result has rows: {result.rows}")
-            return result.rows[0][0] if result.rows[0] else None
+            print(f"[DB DEBUG] Got last_insert_rowid: {row_id}")
+        elif hasattr(result, 'rowid'):
+            row_id = result.rowid
+            print(f"[DB DEBUG] Got rowid: {row_id}")
+        elif hasattr(result, 'rows_affected'):
+            # For inserts without RETURNING, we may need to query last_insert_rowid separately
+            rows_affected = result.rows_affected
+            print(f"[DB DEBUG] rows_affected: {rows_affected}")
+            # Try to get the last inserted ID with a separate query
+            try:
+                id_result = client.execute("SELECT last_insert_rowid() as id")
+                if hasattr(id_result, 'rows') and id_result.rows:
+                    row_id = id_result.rows[0][0]
+                    print(f"[DB DEBUG] Got last_insert_rowid from separate query: {row_id}")
+            except Exception as id_err:
+                print(f"[DB DEBUG] Could not get last_insert_rowid: {id_err}")
+                row_id = rows_affected  # Fallback to rows_affected
         else:
-            # For libsql_client, the result might be structured differently
-            print(f"[DB DEBUG] Result type: {type(result)}, Result: {result}")
-            # Try to access as dict or get rowid directly
-            if isinstance(result, dict):
-                return result.get('last_insert_rowid') or result.get('rowid')
-            return None
+            # Try accessing as object attributes or dictionary
+            print(f"[DB DEBUG] Result repr: {repr(result)}")
+            try:
+                # Try direct dictionary access
+                if isinstance(result, dict):
+                    row_id = result.get('last_insert_rowid') or result.get('rowid') or result.get('id')
+            except:
+                pass
+        
+        print(f"[DB DEBUG] Final row_id: {row_id}")
+        return row_id
+        
     except Exception as e:
         print(f"[DB ERROR] Execute failed: {str(e)}")
         print(f"[DB ERROR] Exception type: {type(e).__name__}")
@@ -145,6 +227,10 @@ def execute_db(query, args=()):
         print(f"[DB ERROR] Args were: {args}")
         raise e
     finally:
+        try:
+            client.close()
+        except:
+            pass
         try:
             client.close()
         except:
@@ -965,6 +1051,9 @@ def get_plan_by_slug(slug):
 def create_challenge_for_user(user_id, plan_id, start_balance):
     """Create a new challenge for the user."""
     from datetime import datetime, timedelta
+    
+    # Ensure the challenges table exists
+    init_challenges_table()
     
     # Prepare values
     end_date_str = (datetime.utcnow() + timedelta(days=30)).isoformat()
