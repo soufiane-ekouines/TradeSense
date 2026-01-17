@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Cpu, Calendar, TrendingUp, AlertCircle, ChevronRight, Clock, Rocket } from 'lucide-react';
+import { Cpu, Calendar, TrendingUp, AlertCircle, ChevronRight, Clock, Rocket, Globe, Flag, ExternalLink } from 'lucide-react';
 import { news_api } from '../services/api';
 import { Card } from './ui/Card';
 
@@ -57,6 +57,7 @@ const CountdownTimer = ({ targetTime }) => {
 export default function NewsHubSection() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState('all'); // 'all', 'maroc', 'international'
 
     useEffect(() => {
         const fetchData = async () => {
@@ -73,6 +74,14 @@ export default function NewsHubSection() {
         const interval = setInterval(fetchData, 60000); // Update every minute
         return () => clearInterval(interval);
     }, []);
+
+    const getFilteredNews = () => {
+        if (!data?.news) return [];
+        if (activeTab === 'all') return data.news;
+        if (activeTab === 'maroc') return data.moroccan_news || data.news.filter(n => n.category === 'maroc');
+        if (activeTab === 'international') return data.international_news || data.news.filter(n => n.category === 'international');
+        return data.news;
+    };
 
     if (loading || !data) return (
         <div className="h-64 flex items-center justify-center bg-black border border-white/5 rounded-2xl">
@@ -185,43 +194,112 @@ export default function NewsHubSection() {
                     </div>
                 </Card>
 
-                {/* Zone D: Live Feed */}
+                {/* Zone D: Live Feed with Tabs */}
                 <Card className="lg:col-span-3 p-4 bg-[#080808] border-white/5">
-                    <div className="flex items-center justify-between mb-4 px-2">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 px-2 gap-4">
                         <div className="flex items-center gap-2">
                             <AlertCircle size={18} className="text-emerald-500" />
                             <span className="font-black uppercase text-xs tracking-widest">Live Terminal Feed</span>
                         </div>
-                        <div className="text-[10px] text-slate-600 font-mono">Real-time Data Stream</div>
+                        
+                        {/* News Tabs */}
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setActiveTab('all')}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all ${
+                                    activeTab === 'all' 
+                                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                                        : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                                }`}
+                            >
+                                Tout
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('maroc')}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all flex items-center gap-1.5 ${
+                                    activeTab === 'maroc' 
+                                        ? 'bg-red-500/20 text-red-400 border border-red-500/30' 
+                                        : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                                }`}
+                            >
+                                <Flag size={12} /> Maroc
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('international')}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all flex items-center gap-1.5 ${
+                                    activeTab === 'international' 
+                                        ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
+                                        : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                                }`}
+                            >
+                                <Globe size={12} /> International
+                            </button>
+                        </div>
+                        
+                        <div className="text-[10px] text-slate-600 font-mono">
+                            {data.last_updated ? `Mis à jour: ${new Date(data.last_updated).toLocaleTimeString('fr-FR')}` : 'Real-time Data Stream'}
+                        </div>
                     </div>
 
-                    <div className="space-y-2 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-                        {data.news.map((item) => (
-                            <motion.div
-                                key={item.id}
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.05] transition-all group"
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className={`w-1 h-8 rounded-full ${item.impact === 'High' ? 'bg-red-500/50' : item.impact === 'Medium' ? 'bg-yellow-500/50' : 'bg-emerald-500/50'}`}></div>
-                                    <div>
-                                        <div className="text-sm font-bold text-slate-200 group-hover:text-emerald-400 transition-colors uppercase tracking-tight">
-                                            {item.title}
-                                        </div>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase ${item.impact === 'High' ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-500'}`}>
-                                                {item.impact} IMPACT
-                                            </span>
-                                            <span className="text-[10px] text-slate-600 flex items-center gap-1 uppercase">
-                                                <Clock size={10} /> {item.time}
-                                            </span>
+                    <div className="space-y-2 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+                        <AnimatePresence mode="wait">
+                            {getFilteredNews().map((item, index) => (
+                                <motion.a
+                                    key={item.id || index}
+                                    href={item.link || '#'}
+                                    target={item.link ? '_blank' : '_self'}
+                                    rel="noopener noreferrer"
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: 10 }}
+                                    transition={{ delay: index * 0.05 }}
+                                    className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.05] transition-all group cursor-pointer block"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-1 h-8 rounded-full ${
+                                            item.category === 'maroc' ? 'bg-red-500/50' :
+                                            item.impact === 'High' ? 'bg-red-500/50' : 
+                                            item.impact === 'Medium' ? 'bg-yellow-500/50' : 
+                                            'bg-emerald-500/50'
+                                        }`}></div>
+                                        <div className="flex-1">
+                                            <div className="text-sm font-bold text-slate-200 group-hover:text-emerald-400 transition-colors uppercase tracking-tight line-clamp-2">
+                                                {item.title}
+                                            </div>
+                                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                                <span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase ${
+                                                    item.category === 'maroc' ? 'bg-red-500/20 text-red-400' :
+                                                    item.impact === 'High' ? 'bg-red-500/20 text-red-400' : 
+                                                    'bg-yellow-500/20 text-yellow-500'
+                                                }`}>
+                                                    {item.category === 'maroc' ? '🇲🇦 MAROC' : item.impact + ' IMPACT'}
+                                                </span>
+                                                {item.source && (
+                                                    <span className="text-[10px] text-emerald-500/70 font-medium">
+                                                        {item.source}
+                                                    </span>
+                                                )}
+                                                <span className="text-[10px] text-slate-600 flex items-center gap-1 uppercase">
+                                                    <Clock size={10} /> {item.time}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                                <ChevronRight size={16} className="text-slate-700 group-hover:text-white transition-colors" />
-                            </motion.div>
-                        ))}
+                                    {item.link ? (
+                                        <ExternalLink size={16} className="text-slate-700 group-hover:text-emerald-400 transition-colors flex-shrink-0" />
+                                    ) : (
+                                        <ChevronRight size={16} className="text-slate-700 group-hover:text-white transition-colors flex-shrink-0" />
+                                    )}
+                                </motion.a>
+                            ))}
+                        </AnimatePresence>
+                        
+                        {getFilteredNews().length === 0 && (
+                            <div className="text-center py-8 text-slate-500">
+                                <AlertCircle size={24} className="mx-auto mb-2 opacity-50" />
+                                <p className="text-sm">Aucune actualité disponible</p>
+                            </div>
+                        )}
                     </div>
                 </Card>
             </div>
