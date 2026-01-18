@@ -288,18 +288,31 @@ export default function Dashboard() {
             sym => Math.abs(activePositionsMap[sym]?.qty || 0) > 0.000001
         );
         
-        if (positionSymbols.length === 0) return;
+        if (positionSymbols.length === 0) {
+            console.log('[LIVE PNL] No open positions to track');
+            return;
+        }
+        
+        console.log('[LIVE PNL] Tracking positions:', positionSymbols);
         
         const fetchAllPrices = async () => {
+            console.log('[LIVE PNL] Fetching prices for:', positionSymbols);
+            
             for (const sym of positionSymbols) {
-                if (sym === symbol) continue; // Already fetched by chart
                 try {
                     const { data } = await market.getQuote(sym);
-                    if (data?.price) {
+                    console.log(`[LIVE PNL] ${sym} price:`, data?.price, 'source:', data?.source);
+                    
+                    if (data?.price && data.price > 0) {
                         setLivePrices(prev => ({ ...prev, [sym]: data.price }));
+                        
+                        // Also update currentPrice if this is the selected symbol
+                        if (sym === symbol) {
+                            setCurrentPrice(data.price);
+                        }
                     }
                 } catch (err) {
-                    console.error(`Failed to fetch price for ${sym}`, err);
+                    console.error(`[LIVE PNL] Failed to fetch price for ${sym}:`, err);
                 }
             }
         };
@@ -827,6 +840,8 @@ export default function Dashboard() {
                                     .filter(([_, data]) => Math.abs(data.qty) > 0.000001)
                                     .map(([sym, data]) => ({ sym, ...data }));
 
+                                console.log('[OPEN POSITIONS] Active:', activePositions.length, 'LivePrices:', Object.keys(livePrices), 'CurrentPrice:', currentPrice);
+
                                 if (activePositions.length === 0) {
                                     return <tr><td colSpan="5" className="px-4 py-8 text-center text-slate-500">No open positions.</td></tr>;
                                 }
@@ -837,6 +852,8 @@ export default function Dashboard() {
                                     let livePnlText = '---';
                                     let pnlColor = 'text-slate-400';
                                     let livePrice = livePrices[sym] || (sym === symbol ? currentPrice : null);
+                                    
+                                    console.log(`[LIVE PNL] ${sym}: livePrice=${livePrice}, avgEntry=${avgEntry}, qty=${qty}`);
 
                                     // SAFETY GUARD: Reject calculation if avgEntry is 0 or invalid
                                     if (!avgEntry || avgEntry <= 0) {

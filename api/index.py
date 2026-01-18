@@ -1394,12 +1394,12 @@ def send_dm_message(tenant, user_id):
 
 @app.route('/api/market/quote', methods=['GET'])
 def get_market_quote():
-    """Get a single market quote for a symbol."""
+    """Get a single market quote for a symbol with real-time prices from yfinance."""
     symbol = request.args.get('symbol', 'BTC-USD')
     
     import random
     
-    # Base prices for different symbols
+    # Base prices for different symbols (fallback mock data)
     base_prices = {
         'BTC-USD': 43000,
         'ETH-USD': 2500,
@@ -1413,18 +1413,61 @@ def get_market_quote():
     }
     
     base_price = base_prices.get(symbol, 100)
-    volatility = base_price * 0.001  # Small variation
-    current_price = base_price + random.uniform(-volatility, volatility)
-    change = random.uniform(-base_price * 0.02, base_price * 0.02)
+    source = 'mock'
+    current_price = base_price
+    prev_close = base_price
+    volume = random.randint(1000000, 10000000)
+    
+    # Try to get real data from yfinance
+    try:
+        import yfinance as yf
+        
+        yf_symbol_map = {
+            'BTC-USD': 'BTC-USD',
+            'ETH-USD': 'ETH-USD',
+            'GOLD': 'GC=F',
+            'EUR-USD': 'EURUSD=X',
+            'AAPL': 'AAPL',
+            'TSLA': 'TSLA',
+            'IAM': 'IAM.PA',
+            'ATW': 'ATW.PA',
+            'BCP': 'BCP.PA',
+        }
+        
+        yf_symbol = yf_symbol_map.get(symbol, symbol)
+        ticker = yf.Ticker(yf_symbol)
+        hist = ticker.history(period='2d', interval='1d')
+        
+        if not hist.empty:
+            current_price = float(hist['Close'].iloc[-1])
+            if len(hist) >= 2:
+                prev_close = float(hist['Close'].iloc[-2])
+            else:
+                prev_close = float(hist['Open'].iloc[-1])
+            volume = int(hist['Volume'].iloc[-1]) if 'Volume' in hist.columns else volume
+            source = 'live'
+            print(f"[MARKET QUOTE] Live data for {symbol}: {current_price}")
+    except Exception as e:
+        print(f"[MARKET QUOTE] yfinance error for {symbol}: {e}, using mock data")
+    
+    if source == 'mock':
+        volatility = base_price * 0.001
+        current_price = base_price + random.uniform(-volatility, volatility)
+        prev_close = base_price
+    
+    change = current_price - prev_close
+    change_pct = (change / prev_close * 100) if prev_close > 0 else 0
+    volatility = current_price * 0.0005
     
     return jsonify({
         'symbol': symbol,
         'price': round(current_price, 4),
         'change': round(change, 4),
-        'change_pct': round((change / base_price) * 100, 2),
-        'bid': round(current_price - volatility * 0.1, 4),
-        'ask': round(current_price + volatility * 0.1, 4),
-        'volume': random.randint(1000000, 10000000)
+        'change_pct': round(change_pct, 2),
+        'bid': round(current_price - volatility, 4),
+        'ask': round(current_price + volatility, 4),
+        'volume': volume,
+        'source': source
     })
 
 
