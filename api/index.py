@@ -1430,51 +1430,13 @@ def get_market_quote():
 
 @app.route('/api/market/tick', methods=['GET'])
 def get_market_tick():
-    """Get real-time tick data for a symbol using yfinance."""
+    """Get real-time tick data for a symbol with candle format for charts."""
     symbol = request.args.get('symbol', 'BTC-USD')
     
     from datetime import datetime
     import random
     
-    # Try to get real data from yfinance, fallback to simulated data
-    try:
-        import yfinance as yf
-        
-        # Map common symbols to yfinance format
-        yf_symbol_map = {
-            'BTC-USD': 'BTC-USD',
-            'ETH-USD': 'ETH-USD',
-            'GOLD': 'GC=F',
-            'EUR-USD': 'EURUSD=X',
-            'AAPL': 'AAPL',
-            'TSLA': 'TSLA',
-            'IAM': 'IAM.PA',  # Maroc Telecom on Paris
-            'ATW': 'ATW.PA',  # Attijariwafa on Paris
-        }
-        
-        yf_symbol = yf_symbol_map.get(symbol, symbol)
-        ticker = yf.Ticker(yf_symbol)
-        
-        # Get current price data
-        hist = ticker.history(period='1d', interval='1m')
-        
-        if not hist.empty:
-            current_price = float(hist['Close'].iloc[-1])
-            prev_close = float(hist['Close'].iloc[0]) if len(hist) > 1 else current_price
-            change = current_price - prev_close
-            
-            return jsonify({
-                'symbol': symbol,
-                'price': round(current_price, 4),
-                'change': round(change, 4),
-                'change_pct': round((change / prev_close) * 100, 2) if prev_close > 0 else 0,
-                'timestamp': datetime.utcnow().isoformat(),
-                'source': 'yfinance'
-            })
-    except Exception as e:
-        print(f"[MARKET TICK] yfinance error for {symbol}: {e}")
-    
-    # Fallback to simulated data
+    # Base prices for different symbols
     base_prices = {
         'BTC-USD': 43000,
         'ETH-USD': 2500,
@@ -1488,18 +1450,66 @@ def get_market_tick():
     }
     
     base_price = base_prices.get(symbol, 100)
-    volatility = base_price * 0.002
-    current_price = base_price + random.uniform(-volatility, volatility)
-    change = random.uniform(-base_price * 0.01, base_price * 0.01)
+    source = 'mock'
+    current_price = base_price
     
-    return jsonify({
+    # Try to get real data from yfinance
+    try:
+        import yfinance as yf
+        
+        yf_symbol_map = {
+            'BTC-USD': 'BTC-USD',
+            'ETH-USD': 'ETH-USD',
+            'GOLD': 'GC=F',
+            'EUR-USD': 'EURUSD=X',
+            'AAPL': 'AAPL',
+            'TSLA': 'TSLA',
+            'IAM': 'IAM.PA',
+            'ATW': 'ATW.PA',
+        }
+        
+        yf_symbol = yf_symbol_map.get(symbol, symbol)
+        ticker = yf.Ticker(yf_symbol)
+        hist = ticker.history(period='1d', interval='1m')
+        
+        if not hist.empty:
+            current_price = float(hist['Close'].iloc[-1])
+            source = 'live'
+            print(f"[MARKET TICK] Live data for {symbol}: {current_price}")
+    except Exception as e:
+        print(f"[MARKET TICK] yfinance error for {symbol}: {e}, using mock data")
+    
+    if source == 'mock':
+        volatility = base_price * 0.002
+        current_price = base_price + random.uniform(-volatility, volatility)
+    
+    # Create current minute candle timestamp
+    now = datetime.utcnow()
+    candle_time = int(now.replace(second=0, microsecond=0).timestamp())
+    
+    # Generate OHLC for current candle
+    volatility = current_price * 0.001
+    open_price = current_price + random.uniform(-volatility, volatility)
+    high_price = max(open_price, current_price) + random.uniform(0, volatility * 0.5)
+    low_price = min(open_price, current_price) - random.uniform(0, volatility * 0.5)
+    
+    response_data = {
         'symbol': symbol,
         'price': round(current_price, 4),
-        'change': round(change, 4),
-        'change_pct': round((change / base_price) * 100, 2) if base_price > 0 else 0,
-        'timestamp': datetime.utcnow().isoformat(),
-        'source': 'simulated'
-    })
+        'timestamp': now.isoformat(),
+        'source': source,
+        'candle': {
+            'time': candle_time,
+            'open': round(open_price, 4),
+            'high': round(high_price, 4),
+            'low': round(low_price, 4),
+            'close': round(current_price, 4),
+            'is_new': now.second < 5
+        }
+    }
+    
+    print(f"[MARKET TICK] Sending tick for {symbol}: price={current_price}, source={source}")
+    return jsonify(response_data)
 
 
 @app.route('/api/market/quotes', methods=['GET'])
@@ -1586,11 +1596,8 @@ def get_market_series():
     # Reverse to have oldest first
     candles.reverse()
     
-    return jsonify({
-        'symbol': symbol,
-        'interval': interval,
-        'candles': candles
-    })
+    print(f"[MARKET SERIES] Sending {len(candles)} candles for {symbol}")
+    return jsonify(candles)  # Return array directly for frontend
 
 
 # ============================================

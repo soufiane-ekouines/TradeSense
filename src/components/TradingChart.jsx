@@ -82,8 +82,11 @@ export default function TradingChart({
     // Update chart when initial data changes
     useEffect(() => {
         if (seriesRef.current && data && data.length > 0) {
+            console.log('TradingChart: Setting', data.length, 'candles, first:', data[0], 'last:', data[data.length - 1]);
             seriesRef.current.setData(data);
             lastCandleTimeRef.current = data[data.length - 1].time;
+        } else {
+            console.log('TradingChart: No data to set, data=', data);
         }
     }, [data]);
 

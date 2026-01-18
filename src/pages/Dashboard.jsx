@@ -220,7 +220,12 @@ export default function Dashboard() {
         if (!silent) setChartLoading(true);
         try {
             // Get Candles
-            const { data: candles } = await market.getSeries(symbol);
+            const { data: candlesData } = await market.getSeries(symbol);
+            
+            // Handle both array and object response formats
+            const candles = Array.isArray(candlesData) ? candlesData : (candlesData?.candles || []);
+            console.log('Chart Data Received:', candles.length, 'candles for', symbol);
+            
             setOhlc(candles);
 
             // Sync Header Price with Latest Candle
