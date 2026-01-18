@@ -132,21 +132,6 @@ export default function TradingChart({
 
     return (
         <div className="relative w-full">
-            {/* Debug Overlay - Now uses Single Source of Truth from parent */}
-            <div className="absolute top-2 right-2 z-10 bg-slate-800/80 px-3 py-1.5 rounded text-xs font-mono">
-                <span className="text-slate-400">Last: </span>
-                <span className="text-emerald-400">{lastPriceUpdate ? lastPriceUpdate.toLocaleTimeString() : '--:--:--'}</span>
-                <span className="text-slate-400 ml-2">Price: </span>
-                <span className="text-white">{currentPrice ? currentPrice.toFixed(2) : '---'}</span>
-                <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] ${
-                    priceSource === 'live' ? 'bg-emerald-500/20 text-emerald-400' : 
-                    priceSource === 'mock' ? 'bg-amber-500/20 text-amber-400' : 
-                    'bg-slate-500/20 text-slate-400'
-                }`}>
-                    {priceSource?.toUpperCase() || 'WAITING'}
-                </span>
-            </div>
-            
             <div ref={chartContainerRef} className="w-full h-[400px]" />
         </div>
     );
