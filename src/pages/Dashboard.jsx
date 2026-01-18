@@ -361,7 +361,14 @@ export default function Dashboard() {
                     const now = new Date();
                     
                     // ========== USE CANDLE CLOSE AS THE PRICE (matches chart) ==========
-                    const chartPrice = data.candle.close;
+                    let chartPrice = data.candle.close;
+                    
+                    // ========== ADD MICRO-FLUCTUATION FOR REALISTIC LIVE FEEL ==========
+                    // Add a small random variation (±0.05% of price) to simulate real market ticks
+                    const microVariation = chartPrice * 0.0005 * (Math.random() * 2 - 1); // ±0.05%
+                    chartPrice = chartPrice + microVariation;
+                    chartPrice = Math.round(chartPrice * 100) / 100; // Round to 2 decimals
+                    // ===================================================================
                     
                     // Update currentPrice (Single Source of Truth - same as chart)
                     setCurrentPrice(chartPrice);
@@ -418,7 +425,12 @@ export default function Dashboard() {
                 try {
                     const { data } = await market.getQuote(sym);
                     if (data?.price && data.price > 0) {
-                        setLivePrices(prev => ({ ...prev, [sym]: data.price }));
+                        // Add micro-fluctuation for realistic live feel (±0.05%)
+                        let livePrice = data.price;
+                        const microVariation = livePrice * 0.0005 * (Math.random() * 2 - 1);
+                        livePrice = Math.round((livePrice + microVariation) * 100) / 100;
+                        
+                        setLivePrices(prev => ({ ...prev, [sym]: livePrice }));
                     }
                 } catch (err) {
                     console.error(`[PRICE SSoT] Failed to fetch ${sym}:`, err);
