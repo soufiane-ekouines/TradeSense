@@ -16,3 +16,5 @@ python-dotenv==1.0.1
 # Web scraping for news (lightweight)
 beautifulsoup4==4.12.3
 lxml==5.1.0
+
+yfinance>=0.2.28

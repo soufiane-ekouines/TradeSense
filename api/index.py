@@ -1428,6 +1428,80 @@ def get_market_quote():
     })
 
 
+@app.route('/api/market/tick', methods=['GET'])
+def get_market_tick():
+    """Get real-time tick data for a symbol using yfinance."""
+    symbol = request.args.get('symbol', 'BTC-USD')
+    
+    from datetime import datetime
+    import random
+    
+    # Try to get real data from yfinance, fallback to simulated data
+    try:
+        import yfinance as yf
+        
+        # Map common symbols to yfinance format
+        yf_symbol_map = {
+            'BTC-USD': 'BTC-USD',
+            'ETH-USD': 'ETH-USD',
+            'GOLD': 'GC=F',
+            'EUR-USD': 'EURUSD=X',
+            'AAPL': 'AAPL',
+            'TSLA': 'TSLA',
+            'IAM': 'IAM.PA',  # Maroc Telecom on Paris
+            'ATW': 'ATW.PA',  # Attijariwafa on Paris
+        }
+        
+        yf_symbol = yf_symbol_map.get(symbol, symbol)
+        ticker = yf.Ticker(yf_symbol)
+        
+        # Get current price data
+        hist = ticker.history(period='1d', interval='1m')
+        
+        if not hist.empty:
+            current_price = float(hist['Close'].iloc[-1])
+            prev_close = float(hist['Close'].iloc[0]) if len(hist) > 1 else current_price
+            change = current_price - prev_close
+            
+            return jsonify({
+                'symbol': symbol,
+                'price': round(current_price, 4),
+                'change': round(change, 4),
+                'change_pct': round((change / prev_close) * 100, 2) if prev_close > 0 else 0,
+                'timestamp': datetime.utcnow().isoformat(),
+                'source': 'yfinance'
+            })
+    except Exception as e:
+        print(f"[MARKET TICK] yfinance error for {symbol}: {e}")
+    
+    # Fallback to simulated data
+    base_prices = {
+        'BTC-USD': 43000,
+        'ETH-USD': 2500,
+        'GOLD': 2045,
+        'EUR-USD': 1.0875,
+        'IAM': 120,
+        'ATW': 450,
+        'BCP': 280,
+        'AAPL': 185,
+        'TSLA': 248,
+    }
+    
+    base_price = base_prices.get(symbol, 100)
+    volatility = base_price * 0.002
+    current_price = base_price + random.uniform(-volatility, volatility)
+    change = random.uniform(-base_price * 0.01, base_price * 0.01)
+    
+    return jsonify({
+        'symbol': symbol,
+        'price': round(current_price, 4),
+        'change': round(change, 4),
+        'change_pct': round((change / base_price) * 100, 2) if base_price > 0 else 0,
+        'timestamp': datetime.utcnow().isoformat(),
+        'source': 'simulated'
+    })
+
+
 @app.route('/api/market/quotes', methods=['GET'])
 def get_market_quotes():
     """Get market quotes for popular symbols."""
@@ -1516,6 +1590,83 @@ def get_market_series():
         'symbol': symbol,
         'interval': interval,
         'candles': candles
+    })
+
+
+# ============================================
+# Strategy Analysis Routes
+# ============================================
+
+@app.route('/api/strategy/consensus', methods=['GET'])
+def get_strategy_consensus():
+    """Get AI consensus analysis for a symbol."""
+    symbol = request.args.get('symbol', 'BTC-USD')
+    
+    import random
+    from datetime import datetime
+    
+    # Simulated technical analysis signals
+    signals = ['bullish', 'bearish', 'neutral']
+    weights = [0.45, 0.35, 0.20]  # Slightly bullish bias for demo
+    
+    # Generate mock analysis based on symbol
+    symbol_biases = {
+        'BTC-USD': {'sentiment': 'bullish', 'base_score': 75},
+        'ETH-USD': {'sentiment': 'bullish', 'base_score': 70},
+        'AAPL': {'sentiment': 'bullish', 'base_score': 72},
+        'TSLA': {'sentiment': 'neutral', 'base_score': 55},
+        'GOLD': {'sentiment': 'bullish', 'base_score': 68},
+        'IAM': {'sentiment': 'neutral', 'base_score': 52},
+        'ATW': {'sentiment': 'bullish', 'base_score': 60},
+    }
+    
+    bias = symbol_biases.get(symbol, {'sentiment': 'neutral', 'base_score': 50})
+    
+    # Add some randomness to the score
+    score = min(100, max(0, bias['base_score'] + random.randint(-10, 10)))
+    
+    # Determine sentiment from score
+    if score >= 70:
+        sentiment = 'bullish'
+        action = 'Strong Buy'
+        summary = f"Strong bullish signals detected for {symbol}. Moving averages confirm upward trend with positive momentum."
+    elif score >= 55:
+        sentiment = 'bullish'
+        action = 'Buy'
+        summary = f"Moderate bullish outlook for {symbol}. Technical indicators suggest accumulation phase."
+    elif score >= 45:
+        sentiment = 'neutral'
+        action = 'Hold'
+        summary = f"Mixed signals for {symbol}. Market consolidating, wait for clearer direction."
+    elif score >= 30:
+        sentiment = 'bearish'
+        action = 'Sell'
+        summary = f"Bearish pressure building on {symbol}. Consider reducing exposure."
+    else:
+        sentiment = 'bearish'
+        action = 'Strong Sell'
+        summary = f"Strong bearish signals for {symbol}. Downtrend confirmed with negative momentum."
+    
+    # Generate mock indicator data
+    indicators = {
+        'rsi': random.randint(30, 70),
+        'macd': 'bullish' if score > 50 else 'bearish',
+        'ma_cross': 'golden' if score > 60 else 'death' if score < 40 else 'neutral',
+        'volume_trend': 'increasing' if random.random() > 0.4 else 'decreasing',
+        'support': round(random.uniform(0.95, 0.98), 4),
+        'resistance': round(random.uniform(1.02, 1.05), 4)
+    }
+    
+    return jsonify({
+        'symbol': symbol,
+        'sentiment': sentiment,
+        'score': score,
+        'action': action,
+        'summary': summary,
+        'indicators': indicators,
+        'confidence': min(95, score + random.randint(5, 15)),
+        'timestamp': datetime.utcnow().isoformat(),
+        'source': 'TradeSense AI'
     })
 
 
