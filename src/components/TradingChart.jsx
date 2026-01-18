@@ -1,11 +1,15 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { createChart, ColorType } from 'lightweight-charts';
-import { market } from '../services/api';
 
 export default function TradingChart({ 
     data, 
     symbol = 'BTC-USD',
-    onPriceUpdate,  // NEW: Callback to send price updates to parent
+    // ========== SINGLE SOURCE OF TRUTH: Receive price from parent ==========
+    tickCandle,         // Latest candle data from parent (SSoT)
+    currentPrice,       // Current price from parent (SSoT)
+    priceSource,        // 'live' | 'mock' | 'waiting'
+    lastPriceUpdate,    // Timestamp of last update
+    // ========================================================================
     colors: {
         backgroundColor = '#0f172a',
         lineColor = '#2962FF',
@@ -18,13 +22,6 @@ export default function TradingChart({
     const chartRef = useRef();
     const seriesRef = useRef();
     const lastCandleTimeRef = useRef(null);
-    
-    // Debug overlay state
-    const [debugInfo, setDebugInfo] = useState({
-        lastUpdate: null,
-        price: null,
-        source: null
-    });
 
     // Initialize chart
     useEffect(() => {
@@ -90,77 +87,63 @@ export default function TradingChart({
         }
     }, [data]);
 
-    // Live tick streaming - THE KEY FIX
+    // ========== SINGLE SOURCE OF TRUTH: Update chart from parent's tickCandle ==========
+    // This replaces the old independent fetching - now we receive data from Dashboard
     useEffect(() => {
-        if (!symbol || !seriesRef.current) return;
-
-        const fetchTick = async () => {
-            try {
-                const response = await market.getTick(symbol);
-                const tickData = response.data;
-                
-                if (!tickData || !tickData.candle) return;
-                
-                const { candle, price, timestamp, source } = tickData;
-                
-                // Update debug overlay
-                setDebugInfo({
-                    lastUpdate: new Date().toLocaleTimeString(),
-                    price: price?.toFixed(2),
-                    source: source
-                });
-                
-                // NEW: Send price update to parent component
-                if (onPriceUpdate && price) {
-                    onPriceUpdate(price, symbol);
-                }
-                
-                // CRUCIAL: Use series.update() to update the chart in real-time
-                const candleData = {
-                    time: candle.time,
-                    open: candle.open,
-                    high: candle.high,
-                    low: candle.low,
-                    close: candle.close
-                };
-                
-                if (candle.is_new && lastCandleTimeRef.current && candle.time > lastCandleTimeRef.current) {
-                    // New candle - this will automatically add it
-                    seriesRef.current.update(candleData);
-                    lastCandleTimeRef.current = candle.time;
-                } else {
-                    // Update existing candle (modify high/low/close)
-                    seriesRef.current.update(candleData);
-                }
-                
-            } catch (err) {
-                console.error('Tick fetch error:', err);
-            }
+        if (!seriesRef.current || !tickCandle) return;
+        
+        // CRUCIAL: Validate time is a proper Unix timestamp (number)
+        const candleTime = typeof tickCandle.time === 'number' 
+            ? tickCandle.time 
+            : Math.floor(Date.now() / 1000);
+        
+        // SAFETY CHECK: Only update if time is >= last candle time
+        // This prevents the "Cannot update oldest data" error
+        if (lastCandleTimeRef.current && candleTime < lastCandleTimeRef.current) {
+            console.log('[CHART] Skipping old candle:', candleTime, '< last:', lastCandleTimeRef.current);
+            return;
+        }
+        
+        const candleData = {
+            time: candleTime,
+            open: tickCandle.open,
+            high: tickCandle.high,
+            low: tickCandle.low,
+            close: tickCandle.close
         };
-
-        // Initial fetch
-        fetchTick();
-
-        // Poll every 1 second for live updates
-        const tickInterval = setInterval(fetchTick, 1000);
-
-        return () => clearInterval(tickInterval);
-    }, [symbol]);
+        
+        try {
+            if (tickCandle.is_new && lastCandleTimeRef.current && candleTime > lastCandleTimeRef.current) {
+                // New candle - add it
+                console.log('[CHART] Adding new candle at time:', candleTime);
+                seriesRef.current.update(candleData);
+                lastCandleTimeRef.current = candleTime;
+            } else if (candleTime >= lastCandleTimeRef.current || !lastCandleTimeRef.current) {
+                // Update existing candle (modify high/low/close)
+                seriesRef.current.update(candleData);
+                if (!lastCandleTimeRef.current) {
+                    lastCandleTimeRef.current = candleTime;
+                }
+            }
+        } catch (err) {
+            console.error('[CHART] Update error:', err.message);
+        }
+    }, [tickCandle]);
 
     return (
         <div className="relative w-full">
-            {/* Debug Overlay */}
+            {/* Debug Overlay - Now uses Single Source of Truth from parent */}
             <div className="absolute top-2 right-2 z-10 bg-slate-800/80 px-3 py-1.5 rounded text-xs font-mono">
                 <span className="text-slate-400">Last: </span>
-                <span className="text-emerald-400">{debugInfo.lastUpdate || '--:--:--'}</span>
+                <span className="text-emerald-400">{lastPriceUpdate ? lastPriceUpdate.toLocaleTimeString() : '--:--:--'}</span>
                 <span className="text-slate-400 ml-2">Price: </span>
-                <span className="text-white">{debugInfo.price || '---'}</span>
+                <span className="text-white">{currentPrice ? currentPrice.toFixed(2) : '---'}</span>
                 <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] ${
-                    debugInfo.source === 'live' ? 'bg-emerald-500/20 text-emerald-400' : 
-                    debugInfo.source === 'mock' ? 'bg-amber-500/20 text-amber-400' : 
+                    priceSource === 'live' ? 'bg-emerald-500/20 text-emerald-400' : 
+                    priceSource === 'mock' ? 'bg-amber-500/20 text-amber-400' : 
                     'bg-slate-500/20 text-slate-400'
                 }`}>
-                    {debugInfo.source?.toUpperCase() || 'WAITING'}
+                    {priceSource?.toUpperCase() || 'WAITING'}
                 </span>
             </div>
             

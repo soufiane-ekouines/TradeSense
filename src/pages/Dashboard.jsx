@@ -33,6 +33,12 @@ export default function Dashboard() {
     // Live prices for all symbols (for PnL calculation)
     const [livePrices, setLivePrices] = useState({});
     
+    // ========== SINGLE SOURCE OF TRUTH: Centralized Price State ==========
+    const [lastPriceUpdate, setLastPriceUpdate] = useState(null); // Timestamp of last update
+    const [priceSource, setPriceSource] = useState('waiting');    // 'live' | 'mock' | 'waiting'
+    const [tickCandle, setTickCandle] = useState(null);          // Latest candle for chart
+    // =====================================================================
+    
     // ========== ACCOUNT STATUS STATE ==========
     const [accountStatus, setAccountStatus] = useState('active'); // 'active' | 'failed' | 'passed'
     const [isAccountLocked, setIsAccountLocked] = useState(false);
@@ -44,19 +50,27 @@ export default function Dashboard() {
     useEffect(() => {
         priceRef.current = currentPrice;
     }, [currentPrice]);
-    
-    // Handle live price updates from chart
-    const handlePriceUpdate = useCallback((price, sym) => {
-        setCurrentPrice(price);
-        priceRef.current = price;
-        setLivePrices(prev => ({ ...prev, [sym]: price }));
-    }, []);
 
     const handleStrategyExecute = (side, setup) => {
         setSuggestedSide(side);
         // Optional: Pre-fill stop loss/take profit if we had those fields in the UI
         console.log("Strategy suggested:", side, setup);
     };
+
+    // ========== PnL FORMATTING HELPER ==========
+    // Returns formatted PnL text with proper sign and color class
+    const formatPnL = (pnl) => {
+        if (pnl === null || pnl === undefined || isNaN(pnl)) {
+            return { text: '---', color: 'text-slate-400' };
+        }
+        const text = (pnl >= 0 ? '+' : '') + pnl.toLocaleString(undefined, { 
+            minimumFractionDigits: 2, 
+            maximumFractionDigits: 2 
+        });
+        const color = pnl >= 0 ? 'text-emerald-500' : 'text-red-500';
+        return { text, color };
+    };
+    // ============================================
 
     // PnL Calculation (useMemo to ensure Hooks consistency)
     // Returns both position data AND pre-computed display data for trades
@@ -282,43 +296,84 @@ export default function Dashboard() {
         };
     }, [fetchMarketData, fetchChallengeData]);
 
-    // Fetch prices for all open positions (for Live PnL)
+    // ========== SINGLE SOURCE OF TRUTH: Centralized Price Polling ==========
+    // This is THE ONLY place that fetches prices - updates currentPrice, livePrices, and chart
+    useEffect(() => {
+        const fetchCentralizedPrice = async () => {
+            try {
+                // Fetch current symbol's tick (for chart + header)
+                const { data } = await market.getTick(symbol);
+                
+                if (data?.price && data.price > 0) {
+                    const now = new Date();
+                    
+                    // Update currentPrice (Single Source of Truth)
+                    setCurrentPrice(data.price);
+                    priceRef.current = data.price;
+                    
+                    // Update livePrices for the current symbol
+                    setLivePrices(prev => ({ ...prev, [symbol]: data.price }));
+                    
+                    // Update metadata
+                    setLastPriceUpdate(now);
+                    setPriceSource(data.source || 'live');
+                    
+                    // Update candle for chart (with proper timestamp handling)
+                    if (data.candle) {
+                        // Ensure time is a Unix timestamp (seconds), not an object
+                        const candleTime = typeof data.candle.time === 'number' 
+                            ? data.candle.time 
+                            : Math.floor(Date.now() / 1000);
+                        
+                        setTickCandle({
+                            time: candleTime,
+                            open: data.candle.open,
+                            high: data.candle.high,
+                            low: data.candle.low,
+                            close: data.candle.close,
+                            is_new: data.candle.is_new
+                        });
+                    }
+                    
+                    console.log(`[PRICE SSoT] ${symbol}: $${data.price.toFixed(2)} (${data.source})`);
+                }
+            } catch (err) {
+                console.error('[PRICE SSoT] Tick fetch error:', err);
+            }
+        };
+        
+        // Initial fetch
+        fetchCentralizedPrice();
+        
+        // Poll every 3 seconds (centralized)
+        const priceInterval = setInterval(fetchCentralizedPrice, 3000);
+        
+        return () => clearInterval(priceInterval);
+    }, [symbol]);
+    
+    // Fetch prices for OTHER open positions (not the selected symbol)
     useEffect(() => {
         const positionSymbols = Object.keys(activePositionsMap).filter(
-            sym => Math.abs(activePositionsMap[sym]?.qty || 0) > 0.000001
+            sym => Math.abs(activePositionsMap[sym]?.qty || 0) > 0.000001 && sym !== symbol
         );
         
-        if (positionSymbols.length === 0) {
-            console.log('[LIVE PNL] No open positions to track');
-            return;
-        }
+        if (positionSymbols.length === 0) return;
         
-        console.log('[LIVE PNL] Tracking positions:', positionSymbols);
-        
-        const fetchAllPrices = async () => {
-            console.log('[LIVE PNL] Fetching prices for:', positionSymbols);
-            
+        const fetchOtherPrices = async () => {
             for (const sym of positionSymbols) {
                 try {
                     const { data } = await market.getQuote(sym);
-                    console.log(`[LIVE PNL] ${sym} price:`, data?.price, 'source:', data?.source);
-                    
                     if (data?.price && data.price > 0) {
                         setLivePrices(prev => ({ ...prev, [sym]: data.price }));
-                        
-                        // Also update currentPrice if this is the selected symbol
-                        if (sym === symbol) {
-                            setCurrentPrice(data.price);
-                        }
                     }
                 } catch (err) {
-                    console.error(`[LIVE PNL] Failed to fetch price for ${sym}:`, err);
+                    console.error(`[PRICE SSoT] Failed to fetch ${sym}:`, err);
                 }
             }
         };
         
-        fetchAllPrices();
-        const interval = setInterval(fetchAllPrices, 5000); // Every 5s
+        fetchOtherPrices();
+        const interval = setInterval(fetchOtherPrices, 5000);
         
         return () => clearInterval(interval);
     }, [activePositionsMap, symbol]);
@@ -659,12 +714,27 @@ export default function Dashboard() {
                         >
                             {symbols.map(s => <option key={s.id} value={s.id}>{s.name} ({s.id})</option>)}
                         </select>
+                        {/* ========== PRICE DISPLAY (Single Source of Truth) ========== */}
                         <div className="text-xl font-mono font-bold flex items-center gap-2">
                             <span className={`transition-colors duration-200 ${currentPrice > (livePrices[symbol + '_prev'] || currentPrice) ? 'text-emerald-400' : currentPrice < (livePrices[symbol + '_prev'] || currentPrice) ? 'text-red-400' : 'text-white'}`}>
-                                {currentPrice ? (currentPrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '---'}
+                                {currentPrice ? currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '---'}
                             </span>
                             <span className="text-xs text-slate-500">
                                 {symbol.includes('BTC') || symbol.includes('ETH') ? 'USD' : symbol.includes('IAM') || symbol.includes('ATW') ? 'MAD' : 'USD'}
+                            </span>
+                        </div>
+                        {/* Last Update Timestamp + Source Badge */}
+                        <div className="flex items-center gap-2 text-xs">
+                            <span className="text-slate-500">Last:</span>
+                            <span className="text-slate-400 font-mono">
+                                {lastPriceUpdate ? lastPriceUpdate.toLocaleTimeString() : '--:--:--'}
+                            </span>
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                priceSource === 'live' ? 'bg-emerald-500/20 text-emerald-400' : 
+                                priceSource === 'mock' ? 'bg-amber-500/20 text-amber-400' : 
+                                'bg-slate-500/20 text-slate-400'
+                            }`}>
+                                {priceSource?.toUpperCase() || 'WAITING'}
                             </span>
                         </div>
                         <Button
@@ -691,7 +761,10 @@ export default function Dashboard() {
                         <TradingChart 
                             data={ohlc} 
                             symbol={symbol} 
-                            onPriceUpdate={handlePriceUpdate}
+                            tickCandle={tickCandle}
+                            currentPrice={currentPrice}
+                            priceSource={priceSource}
+                            lastPriceUpdate={lastPriceUpdate}
                         />
                     </Card>
                 </div>
@@ -840,34 +913,30 @@ export default function Dashboard() {
                                     .filter(([_, data]) => Math.abs(data.qty) > 0.000001)
                                     .map(([sym, data]) => ({ sym, ...data }));
 
-                                console.log('[OPEN POSITIONS] Active:', activePositions.length, 'LivePrices:', Object.keys(livePrices), 'CurrentPrice:', currentPrice);
-
                                 if (activePositions.length === 0) {
                                     return <tr><td colSpan="5" className="px-4 py-8 text-center text-slate-500">No open positions.</td></tr>;
                                 }
 
                                 return activePositions.map(({ sym, qty, avgEntry }) => {
-                                    // Calculate Live PnL using stored live prices
-                                    let livePnl = 0;
-                                    let livePnlText = '---';
-                                    let pnlColor = 'text-slate-400';
-                                    let livePrice = livePrices[sym] || (sym === symbol ? currentPrice : null);
+                                    // ========== LIVE PnL CALCULATION (Single Source of Truth) ==========
+                                    // Get price from livePrices (SSoT) - includes current symbol from centralized polling
+                                    const livePrice = livePrices[sym] || null;
                                     
-                                    console.log(`[LIVE PNL] ${sym}: livePrice=${livePrice}, avgEntry=${avgEntry}, qty=${qty}`);
-
-                                    // SAFETY GUARD: Reject calculation if avgEntry is 0 or invalid
+                                    let livePnl = null;
+                                    let pnlFormatted = { text: '---', color: 'text-slate-400' };
+                                    
+                                    // Validate inputs before calculation
                                     if (!avgEntry || avgEntry <= 0) {
-                                        livePnlText = 'Loading...';
-                                        pnlColor = 'text-yellow-500';
+                                        pnlFormatted = { text: 'Loading...', color: 'text-yellow-500' };
                                     } else if (livePrice && livePrice > 0) {
-                                        // Correct PnL formula:
-                                        // LONG (qty > 0): profit when price goes UP   -> (current - entry) * qty
-                                        // SHORT (qty < 0): profit when price goes DOWN -> (entry - current) * |qty|
-                                        // Since qty is already signed, formula simplifies to: (current - entry) * qty
+                                        // PnL Formula:
+                                        // LONG (qty > 0):  PnL = (currentPrice - entryPrice) * quantity
+                                        // SHORT (qty < 0): PnL = (entryPrice - currentPrice) * |quantity|
+                                        // Since qty is signed, formula simplifies to: (current - entry) * qty
                                         livePnl = (livePrice - avgEntry) * qty;
-                                        livePnlText = (livePnl >= 0 ? '+' : '') + (livePnl || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                                        pnlColor = livePnl >= 0 ? 'text-emerald-500' : 'text-red-500';
+                                        pnlFormatted = formatPnL(livePnl);
                                     }
+                                    // =====================================================================
 
                                     return (
                                         <tr key={sym} className="hover:bg-white/5">
@@ -876,13 +945,13 @@ export default function Dashboard() {
                                                 {qty > 0 ? '+' : ''}{(qty || 0).toFixed(4)}
                                             </td>
                                             <td className="px-4 py-2 text-slate-400">
-                                                {(avgEntry || 0).toFixed(2)}
+                                                ${(avgEntry || 0).toFixed(2)}
                                             </td>
-                                            <td className={`px-4 py-2 font-semibold font-mono ${pnlColor}`}>
-                                                {livePnlText} {!livePrice && <span className="text-xs text-slate-600">(Select to view)</span>}
+                                            <td className={`px-4 py-2 font-semibold font-mono ${pnlFormatted.color}`}>
+                                                {pnlFormatted.text} {!livePrice && <span className="text-xs text-slate-600">(Waiting...)</span>}
                                             </td>
                                             <td className="px-4 py-2 text-right relative">
-                                                {livePnl > 0 && sym === closingId && (
+                                                {livePnl && livePnl > 0 && sym === closingId && (
                                                     <motion.div
                                                         initial={{ opacity: 0, scale: 0.5 }}
                                                         animate={{ opacity: 1, scale: 1.5 }}
