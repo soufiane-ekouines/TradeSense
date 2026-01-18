@@ -45,9 +45,13 @@ export default function LiveStrategyPanel({ symbol, onExecute }) {
         </Card>
     );
 
-    const { consensus, setup, strategies } = data;
-    const isBullish = consensus.action === 'BUY';
-    const isBearish = consensus.action === 'SELL';
+    // Safe defaults for consensus, setup, and strategies
+    const consensus = data?.consensus || { action: 'NEUTRAL', confidence: 50, score: 50 };
+    const setup = data?.setup || { entry_price: 0, stop_loss: 0, take_profit: 0 };
+    const strategies = data?.strategies || {};
+    
+    const isBullish = consensus?.action === 'BUY';
+    const isBearish = consensus?.action === 'SELL';
 
     // Cyberpunk dynamic border color
     const borderColor = isBullish ? 'border-emerald-500/50' : isBearish ? 'border-red-500/50' : 'border-slate-500/50';
@@ -80,12 +84,12 @@ export default function LiveStrategyPanel({ symbol, onExecute }) {
                         <div className="z-10 flex flex-col items-center">
                             <span className="text-xs text-slate-400 uppercase tracking-widest">Confidence</span>
                             <span className={`text-3xl font-black ${isBullish ? 'text-emerald-400' : isBearish ? 'text-red-400' : 'text-slate-200'}`}>
-                                {consensus.confidence}%
+                                {consensus?.confidence || 50}%
                             </span>
                         </div>
                     </div>
                     <div className={`px-3 py-1 rounded text-xs font-bold uppercase ${isBullish ? 'bg-emerald-500/20 text-emerald-400' : isBearish ? 'bg-red-500/20 text-red-400' : 'bg-slate-800 text-slate-400'}`}>
-                        {consensus.action}
+                        {consensus?.action || 'NEUTRAL'}
                     </div>
                 </div>
 
@@ -118,26 +122,26 @@ export default function LiveStrategyPanel({ symbol, onExecute }) {
                     <div className="space-y-2 z-10">
                         <div className="flex justify-between text-xs">
                             <span className="text-slate-400">Entry Zone</span>
-                            <span className="font-mono text-slate-200">{setup.entry_price}</span>
+                            <span className="font-mono text-slate-200">{setup?.entry_price || '---'}</span>
                         </div>
                         <div className="flex justify-between text-xs">
                             <span className="text-slate-400">Stop Loss</span>
-                            <span className="font-mono text-red-400">{setup.stop_loss}</span>
+                            <span className="font-mono text-red-400">{setup?.stop_loss || '---'}</span>
                         </div>
                         <div className="flex justify-between text-xs">
                             <span className="text-slate-400">Take Profit</span>
-                            <span className="font-mono text-emerald-400">{setup.take_profit}</span>
+                            <span className="font-mono text-emerald-400">{setup?.take_profit || '---'}</span>
                         </div>
                     </div>
 
                     <button
-                        onClick={() => onExecute && onExecute(consensus.action.toLowerCase(), setup)}
+                        onClick={() => onExecute && onExecute((consensus?.action || 'neutral').toLowerCase(), setup)}
                         className={`mt-4 w-full py-2 flex items-center justify-center gap-2 rounded text-xs font-bold uppercase transition-all hover:scale-[1.02] active:scale-95
                             ${isBullish ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/50' :
                                 isBearish ? 'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/50' :
                                     'bg-slate-700 text-slate-400 cursor-not-allowed'}
                         `}
-                        disabled={consensus.action === 'NEUTRAL'}
+                        disabled={!consensus?.action || consensus?.action === 'NEUTRAL'}
                     >
                         <Zap size={14} />
                         Execute Setup

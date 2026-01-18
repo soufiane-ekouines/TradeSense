@@ -1605,69 +1605,111 @@ def get_strategy_consensus():
     import random
     from datetime import datetime
     
-    # Simulated technical analysis signals
-    signals = ['bullish', 'bearish', 'neutral']
-    weights = [0.45, 0.35, 0.20]  # Slightly bullish bias for demo
+    try:
+        # Generate mock analysis based on symbol
+        symbol_biases = {
+            'BTC-USD': {'sentiment': 'bullish', 'base_score': 75, 'base_price': 43000},
+            'ETH-USD': {'sentiment': 'bullish', 'base_score': 70, 'base_price': 2500},
+            'AAPL': {'sentiment': 'bullish', 'base_score': 72, 'base_price': 185},
+            'TSLA': {'sentiment': 'neutral', 'base_score': 55, 'base_price': 248},
+            'GOLD': {'sentiment': 'bullish', 'base_score': 68, 'base_price': 2045},
+            'IAM': {'sentiment': 'neutral', 'base_score': 52, 'base_price': 120},
+            'ATW': {'sentiment': 'bullish', 'base_score': 60, 'base_price': 450},
+        }
+        
+        bias = symbol_biases.get(symbol, {'sentiment': 'neutral', 'base_score': 50, 'base_price': 100})
+        base_price = bias['base_price']
+        
+        # Add some randomness to the score
+        score = min(100, max(0, bias['base_score'] + random.randint(-10, 10)))
+        confidence = min(95, score + random.randint(5, 15))
+        
+        # Determine action from score (must be BUY, SELL, or NEUTRAL for frontend)
+        if score >= 60:
+            action = 'BUY'
+        elif score <= 40:
+            action = 'SELL'
+        else:
+            action = 'NEUTRAL'
+        
+        # Generate setup prices based on action
+        if action == 'BUY':
+            entry_price = round(base_price * (1 + random.uniform(-0.005, 0.005)), 2)
+            stop_loss = round(entry_price * 0.97, 2)  # 3% below entry
+            take_profit = round(entry_price * 1.06, 2)  # 6% above entry
+        elif action == 'SELL':
+            entry_price = round(base_price * (1 + random.uniform(-0.005, 0.005)), 2)
+            stop_loss = round(entry_price * 1.03, 2)  # 3% above entry
+            take_profit = round(entry_price * 0.94, 2)  # 6% below entry
+        else:
+            entry_price = round(base_price, 2)
+            stop_loss = round(base_price * 0.95, 2)
+            take_profit = round(base_price * 1.05, 2)
+        
+        # Generate strategy signals matrix
+        strategies = {
+            'EMA Cross': {
+                'direction': 'BUY' if score > 55 else 'SELL' if score < 45 else 'NEUTRAL',
+                'strength': min(100, score + random.randint(-5, 15))
+            },
+            'MACD': {
+                'direction': 'BUY' if score > 50 else 'SELL' if score < 50 else 'NEUTRAL',
+                'strength': min(100, score + random.randint(-10, 10))
+            },
+            'RSI': {
+                'direction': 'BUY' if random.randint(30, 70) < 40 else 'SELL' if random.randint(30, 70) > 60 else 'NEUTRAL',
+                'strength': random.randint(50, 85)
+            },
+            'Bollinger': {
+                'direction': 'BUY' if score > 52 else 'SELL' if score < 48 else 'NEUTRAL',
+                'strength': min(100, score + random.randint(-8, 12))
+            },
+            'News Sentiment': {
+                'direction': 'BUY' if bias['sentiment'] == 'bullish' else 'SELL' if bias['sentiment'] == 'bearish' else 'NEUTRAL',
+                'strength': random.randint(60, 90)
+            }
+        }
+        
+        return jsonify({
+            'consensus': {
+                'action': action,
+                'confidence': confidence,
+                'score': score
+            },
+            'setup': {
+                'entry_price': entry_price,
+                'stop_loss': stop_loss,
+                'take_profit': take_profit
+            },
+            'strategies': strategies,
+            'symbol': symbol,
+            'timestamp': datetime.utcnow().isoformat()
+        })
     
-    # Generate mock analysis based on symbol
-    symbol_biases = {
-        'BTC-USD': {'sentiment': 'bullish', 'base_score': 75},
-        'ETH-USD': {'sentiment': 'bullish', 'base_score': 70},
-        'AAPL': {'sentiment': 'bullish', 'base_score': 72},
-        'TSLA': {'sentiment': 'neutral', 'base_score': 55},
-        'GOLD': {'sentiment': 'bullish', 'base_score': 68},
-        'IAM': {'sentiment': 'neutral', 'base_score': 52},
-        'ATW': {'sentiment': 'bullish', 'base_score': 60},
-    }
-    
-    bias = symbol_biases.get(symbol, {'sentiment': 'neutral', 'base_score': 50})
-    
-    # Add some randomness to the score
-    score = min(100, max(0, bias['base_score'] + random.randint(-10, 10)))
-    
-    # Determine sentiment from score
-    if score >= 70:
-        sentiment = 'bullish'
-        action = 'Strong Buy'
-        summary = f"Strong bullish signals detected for {symbol}. Moving averages confirm upward trend with positive momentum."
-    elif score >= 55:
-        sentiment = 'bullish'
-        action = 'Buy'
-        summary = f"Moderate bullish outlook for {symbol}. Technical indicators suggest accumulation phase."
-    elif score >= 45:
-        sentiment = 'neutral'
-        action = 'Hold'
-        summary = f"Mixed signals for {symbol}. Market consolidating, wait for clearer direction."
-    elif score >= 30:
-        sentiment = 'bearish'
-        action = 'Sell'
-        summary = f"Bearish pressure building on {symbol}. Consider reducing exposure."
-    else:
-        sentiment = 'bearish'
-        action = 'Strong Sell'
-        summary = f"Strong bearish signals for {symbol}. Downtrend confirmed with negative momentum."
-    
-    # Generate mock indicator data
-    indicators = {
-        'rsi': random.randint(30, 70),
-        'macd': 'bullish' if score > 50 else 'bearish',
-        'ma_cross': 'golden' if score > 60 else 'death' if score < 40 else 'neutral',
-        'volume_trend': 'increasing' if random.random() > 0.4 else 'decreasing',
-        'support': round(random.uniform(0.95, 0.98), 4),
-        'resistance': round(random.uniform(1.02, 1.05), 4)
-    }
-    
-    return jsonify({
-        'symbol': symbol,
-        'sentiment': sentiment,
-        'score': score,
-        'action': action,
-        'summary': summary,
-        'indicators': indicators,
-        'confidence': min(95, score + random.randint(5, 15)),
-        'timestamp': datetime.utcnow().isoformat(),
-        'source': 'TradeSense AI'
-    })
+    except Exception as e:
+        print(f"[STRATEGY CONSENSUS ERROR] {e}")
+        # Return safe default on error
+        return jsonify({
+            'consensus': {
+                'action': 'NEUTRAL',
+                'confidence': 50,
+                'score': 50
+            },
+            'setup': {
+                'entry_price': 0,
+                'stop_loss': 0,
+                'take_profit': 0
+            },
+            'strategies': {
+                'EMA Cross': {'direction': 'NEUTRAL', 'strength': 50},
+                'MACD': {'direction': 'NEUTRAL', 'strength': 50},
+                'RSI': {'direction': 'NEUTRAL', 'strength': 50},
+                'Bollinger': {'direction': 'NEUTRAL', 'strength': 50},
+                'News Sentiment': {'direction': 'NEUTRAL', 'strength': 50}
+            },
+            'symbol': symbol,
+            'error': 'Analysis temporarily unavailable'
+        })
 
 
 # ============================================
