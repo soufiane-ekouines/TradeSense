@@ -144,34 +144,36 @@ export default function Dashboard() {
     const fetchChallengeData = useCallback(async () => {
         try {
             const { data } = await challenges.getActive();
-            setChallenge(data);
-            if (data) {
-                const history = await trades.getHistory(data.id);
-                setTradeHistory(history.data);
+            // API returns {challenge: ...} so extract the actual challenge object
+            const challengeData = data?.challenge || data;
+            setChallenge(challengeData);
+            if (challengeData?.id) {
+                const history = await trades.getHistory(challengeData.id);
+                setTradeHistory(history.data || []);
                 
                 // IMPORTANT: Immediately show overlay for failed/passed challenges on load
-                if (data.status === 'failed') {
+                if (challengeData.status === 'failed') {
                     console.log('🚨 Challenge FAILED - Showing overlay');
                     setAccountStatus('failed');
                     setIsAccountLocked(true);
                     setShowStatusOverlay(true);
                     setAccountMetrics({
-                        initial_balance: data.start_balance,
-                        current_equity: data.equity,
-                        profit: data.equity - data.start_balance,
-                        profit_pct: ((data.equity - data.start_balance) / data.start_balance) * 100,
-                        total_drawdown_pct: ((data.start_balance - data.equity) / data.start_balance) * 100
+                        initial_balance: challengeData.start_balance,
+                        current_equity: challengeData.equity,
+                        profit: challengeData.equity - challengeData.start_balance,
+                        profit_pct: ((challengeData.equity - challengeData.start_balance) / challengeData.start_balance) * 100,
+                        total_drawdown_pct: ((challengeData.start_balance - challengeData.equity) / challengeData.start_balance) * 100
                     });
-                } else if (data.status === 'passed') {
+                } else if (challengeData.status === 'passed') {
                     console.log('🏆 Challenge PASSED - Showing overlay');
                     setAccountStatus('passed');
                     setIsAccountLocked(false);
                     setShowStatusOverlay(true);
                     setAccountMetrics({
-                        initial_balance: data.start_balance,
-                        current_equity: data.equity,
-                        profit: data.equity - data.start_balance,
-                        profit_pct: ((data.equity - data.start_balance) / data.start_balance) * 100,
+                        initial_balance: challengeData.start_balance,
+                        current_equity: challengeData.equity,
+                        profit: challengeData.equity - challengeData.start_balance,
+                        profit_pct: ((challengeData.equity - challengeData.start_balance) / challengeData.start_balance) * 100,
                         profit_progress_pct: 100
                     });
                 }
@@ -520,13 +522,13 @@ export default function Dashboard() {
         );
     }
 
-    const startBal = challenge.start_balance;
-    const equity = challenge.equity;
+    const startBal = challenge?.start_balance || 0;
+    const equity = challenge?.equity || 0;
     const pnl = equity - startBal;
-    const pnlPct = (pnl / startBal) * 100;
+    const pnlPct = startBal > 0 ? (pnl / startBal) * 100 : 0;
 
     // Determine if trading is allowed
-    const canTrade = !isAccountLocked && challenge.status === 'active';
+    const canTrade = !isAccountLocked && challenge?.status === 'active';
 
     return (
         <>
@@ -604,19 +606,19 @@ export default function Dashboard() {
                 <Card className="p-4">
                     <div className="text-slate-400 text-xs uppercase font-bold">Equity</div>
                     <div className="text-2xl font-bold font-mono">
-                        {equity.toLocaleString(undefined, { minimumFractionDigits: 2 })} <span className="text-sm text-slate-500">DH</span>
+                        {(equity || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} <span className="text-sm text-slate-500">DH</span>
                     </div>
                 </Card>
                 <Card className="p-4">
                     <div className="text-slate-400 text-xs uppercase font-bold">Balance</div>
                     <div className="text-xl font-bold text-slate-300">
-                        {startBal.toLocaleString()} <span className="text-sm text-slate-600">DH</span>
+                        {(startBal || 0).toLocaleString()} <span className="text-sm text-slate-600">DH</span>
                     </div>
                 </Card>
                 <Card className="p-4">
                     <div className="text-slate-400 text-xs uppercase font-bold">Total PnL</div>
                     <div className={`text-2xl font-bold ${pnl >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                        {pnl >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%
+                        {pnl >= 0 ? '+' : ''}{(pnlPct || 0).toFixed(2)}%
                     </div>
                 </Card>
             </div>
@@ -641,7 +643,7 @@ export default function Dashboard() {
                         </select>
                         <div className="text-xl font-mono font-bold flex items-center gap-2">
                             <span className={`transition-colors duration-200 ${currentPrice > (livePrices[symbol + '_prev'] || currentPrice) ? 'text-emerald-400' : currentPrice < (livePrices[symbol + '_prev'] || currentPrice) ? 'text-red-400' : 'text-white'}`}>
-                                {currentPrice ? currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '---'}
+                                {currentPrice ? (currentPrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '---'}
                             </span>
                             <span className="text-xs text-slate-500">
                                 {symbol.includes('BTC') || symbol.includes('ETH') ? 'USD' : symbol.includes('IAM') || symbol.includes('ATW') ? 'MAD' : 'USD'}
@@ -841,7 +843,7 @@ export default function Dashboard() {
                                         // SHORT (qty < 0): profit when price goes DOWN -> (entry - current) * |qty|
                                         // Since qty is already signed, formula simplifies to: (current - entry) * qty
                                         livePnl = (livePrice - avgEntry) * qty;
-                                        livePnlText = (livePnl >= 0 ? '+' : '') + livePnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                        livePnlText = (livePnl >= 0 ? '+' : '') + (livePnl || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                                         pnlColor = livePnl >= 0 ? 'text-emerald-500' : 'text-red-500';
                                     }
 
@@ -849,10 +851,10 @@ export default function Dashboard() {
                                         <tr key={sym} className="hover:bg-white/5">
                                             <td className="px-4 py-2 font-medium">{sym}</td>
                                             <td className={`px-4 py-2 font-mono font-bold ${qty > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                                {qty > 0 ? '+' : ''}{qty.toFixed(4)}
+                                                {qty > 0 ? '+' : ''}{(qty || 0).toFixed(4)}
                                             </td>
                                             <td className="px-4 py-2 text-slate-400">
-                                                {avgEntry.toFixed(2)}
+                                                {(avgEntry || 0).toFixed(2)}
                                             </td>
                                             <td className={`px-4 py-2 font-semibold font-mono ${pnlColor}`}>
                                                 {livePnlText} {!livePrice && <span className="text-xs text-slate-600">(Select to view)</span>}
@@ -913,13 +915,13 @@ export default function Dashboard() {
                                     <td className={`px-4 py-2 uppercase font-bold ${t.side === 'buy' ? 'text-emerald-500' : 'text-red-500'}`}>{t.side}</td>
                                     <td className="px-4 py-2">{t.qty}</td>
                                     <td className="px-4 py-2 text-slate-400">
-                                        {t.isClose && t.entryPrice != null ? t.entryPrice.toFixed(2) : '-'}
+                                        {t.isClose && t.entryPrice != null ? (t.entryPrice || 0).toFixed(2) : '-'}
                                     </td>
                                     <td className="px-4 py-2 font-mono">
-                                        {t.price.toFixed(2)}
+                                        {(t.price || 0).toFixed(2)}
                                     </td>
                                     <td className={`px-4 py-2 font-mono ${!t.isClose ? 'text-slate-600' : t.realizedPnl > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                                        {t.isClose && t.realizedPnl != null ? t.realizedPnl.toFixed(2) : '-'}
+                                        {t.isClose && t.realizedPnl != null ? (t.realizedPnl || 0).toFixed(2) : '-'}
                                     </td>
                                 </tr>
                             ))}

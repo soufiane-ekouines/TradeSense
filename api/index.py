@@ -313,11 +313,9 @@ def root():
         'turso_configured': bool(TURSO_DATABASE_URL and TURSO_AUTH_TOKEN)
     })
 
-# Routes are registered with both /api prefix and without
-# This handles Vercel's routing behavior which may or may not strip the prefix
+# Routes are registered with /api prefix for Vercel deployment
 
 @app.route('/api/debug', methods=['GET'])
-@app.route('/debug', methods=['GET'])
 def debug_route():
     """Debug endpoint to check routing."""
     return jsonify({
@@ -330,7 +328,6 @@ def debug_route():
     })
 
 @app.route('/api/health', methods=['GET'])
-@app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint."""
     db_status = 'not_configured'
@@ -362,7 +359,6 @@ def health_check():
 # ============================================
 
 @app.route('/api/auth/register', methods=['POST'])
-@app.route('/auth/register', methods=['POST'])
 def register():
     """Register a new user."""
     from werkzeug.security import generate_password_hash
@@ -397,7 +393,6 @@ def register():
 
 
 @app.route('/api/auth/login', methods=['POST'])
-@app.route('/auth/login', methods=['POST'])
 def login():
     """Login a user."""
     from werkzeug.security import check_password_hash
@@ -445,7 +440,6 @@ def login():
 
 
 @app.route('/api/auth/me', methods=['GET'])
-@app.route('/auth/me', methods=['GET'])
 @token_required
 def get_current_user():
     """Get current user info."""
@@ -463,7 +457,6 @@ def get_current_user():
 # ============================================
 
 @app.route('/api/plans', methods=['GET'])
-@app.route('/plans', methods=['GET'])
 def get_plans():
     """Get all available plans."""
     plans = query_db('SELECT * FROM plans ORDER BY price_dh ASC')
@@ -483,7 +476,6 @@ def get_plans():
 # ============================================
 
 @app.route('/api/challenges/active', methods=['GET'])
-@app.route('/challenges/active', methods=['GET'])
 @token_required
 def get_active_challenge():
     """Get user's active challenge."""
@@ -520,7 +512,6 @@ def get_active_challenge():
 
 
 @app.route('/api/challenges', methods=['GET'])
-@app.route('/challenges', methods=['GET'])
 @token_required
 def get_challenges():
     """Get user's challenges."""
@@ -537,7 +528,6 @@ def get_challenges():
 
 
 @app.route('/api/challenges/<int:challenge_id>', methods=['GET'])
-@app.route('/challenges/<int:challenge_id>', methods=['GET'])
 @token_required
 def get_challenge(challenge_id):
     """Get a specific challenge."""
@@ -564,18 +554,19 @@ def get_challenge(challenge_id):
 # ============================================
 
 @app.route('/api/trades', methods=['GET'])
-@app.route('/trades', methods=['GET'])
 @token_required
 def get_trades_by_query():
     """Get trades for a challenge (challenge_id from query params)."""
     challenge_id = request.args.get('challenge_id')
+    
+    # Return empty array if no challenge_id (prevents frontend crash)
     if not challenge_id:
-        return jsonify({'error': 'challenge_id is required'}), 400
+        return jsonify([])
     
     try:
         challenge_id = int(challenge_id)
     except ValueError:
-        return jsonify({'error': 'Invalid challenge_id'}), 400
+        return jsonify([])
     
     # Verify challenge belongs to user
     challenge = query_db(
@@ -609,7 +600,6 @@ def get_trades_by_query():
 
 
 @app.route('/api/trades/<int:challenge_id>', methods=['GET'])
-@app.route('/trades/<int:challenge_id>', methods=['GET'])
 @token_required
 def get_trades(challenge_id):
     """Get trades for a challenge."""
@@ -632,7 +622,6 @@ def get_trades(challenge_id):
 
 
 @app.route('/api/trades', methods=['POST'])
-@app.route('/trades', methods=['POST'])
 @token_required
 def create_trade_body():
     """Create a new trade (challenge_id from request body)."""
@@ -691,7 +680,6 @@ def create_trade_body():
 
 
 @app.route('/api/trades/<int:challenge_id>', methods=['POST'])
-@app.route('/trades/<int:challenge_id>', methods=['POST'])
 @token_required
 def create_trade(challenge_id):
     """Create a new trade."""
@@ -732,7 +720,6 @@ def create_trade(challenge_id):
 
 
 @app.route('/api/trades/equity/<int:challenge_id>', methods=['GET'])
-@app.route('/trades/equity/<int:challenge_id>', methods=['GET'])
 @token_required
 def get_equity(challenge_id):
     """Get equity for a challenge."""
@@ -753,7 +740,6 @@ def get_equity(challenge_id):
 
 
 @app.route('/api/trades/positions/<int:challenge_id>', methods=['GET'])
-@app.route('/trades/positions/<int:challenge_id>', methods=['GET'])
 @token_required
 def get_positions(challenge_id):
     """Get open positions for a challenge."""
@@ -800,7 +786,6 @@ def get_positions(challenge_id):
 
 
 @app.route('/api/trades/watchdog/<int:challenge_id>', methods=['GET'])
-@app.route('/trades/watchdog/<int:challenge_id>', methods=['GET'])
 @token_required
 def get_watchdog(challenge_id):
     """Get watchdog status for a challenge."""
@@ -836,7 +821,6 @@ def get_watchdog(challenge_id):
 
 
 @app.route('/api/trades/validate-account', methods=['POST'])
-@app.route('/trades/validate-account', methods=['POST'])
 @token_required
 def validate_account():
     """Validate account status (prop firm rules check)."""
@@ -905,7 +889,6 @@ def validate_account():
 
 
 @app.route('/api/trades/close-all', methods=['POST'])
-@app.route('/trades/close-all', methods=['POST'])
 @token_required
 def close_all_positions():
     """Panic close all positions."""
@@ -933,7 +916,6 @@ def close_all_positions():
 
 
 @app.route('/api/trades/risk/<int:challenge_id>', methods=['GET'])
-@app.route('/trades/risk/<int:challenge_id>', methods=['GET'])
 @token_required
 def get_risk(challenge_id):
     """Get risk metrics for a challenge."""
@@ -965,7 +947,6 @@ def get_risk(challenge_id):
 # ============================================
 
 @app.route('/api/leaderboard', methods=['GET'])
-@app.route('/leaderboard', methods=['GET'])
 def get_leaderboard():
     """Get the leaderboard."""
     leaderboard = query_db(
@@ -1412,7 +1393,6 @@ def send_dm_message(tenant, user_id):
 # ============================================
 
 @app.route('/api/market/quote', methods=['GET'])
-@app.route('/market/quote', methods=['GET'])
 def get_market_quote():
     """Get a single market quote for a symbol."""
     symbol = request.args.get('symbol', 'BTC-USD')
@@ -1449,7 +1429,6 @@ def get_market_quote():
 
 
 @app.route('/api/market/quotes', methods=['GET'])
-@app.route('/market/quotes', methods=['GET'])
 def get_market_quotes():
     """Get market quotes for popular symbols."""
     # This would typically integrate with a real market data API
@@ -1465,7 +1444,6 @@ def get_market_quotes():
 
 
 @app.route('/api/market/series', methods=['GET'])
-@app.route('/market/series', methods=['GET'])
 def get_market_series():
     """Get OHLCV candlestick data for a symbol."""
     symbol = request.args.get('symbol', 'BTC-USD')
@@ -1600,7 +1578,6 @@ def create_challenge_for_user(user_id, plan_id, start_balance):
 
 
 @app.route('/api/checkout/crypto', methods=['POST'])
-@app.route('/checkout/crypto', methods=['POST'])
 @token_required
 def pay_crypto():
     """Process crypto payment."""
@@ -1659,7 +1636,6 @@ def pay_crypto():
 
 
 @app.route('/api/checkout/cmi', methods=['POST'])
-@app.route('/checkout/cmi', methods=['POST'])
 @token_required
 def pay_cmi():
     """Process CMI card payment."""
@@ -1702,7 +1678,6 @@ def pay_cmi():
 
 
 @app.route('/api/checkout/paypal', methods=['POST'])
-@app.route('/checkout/paypal', methods=['POST'])
 @token_required
 def pay_paypal():
     """Process PayPal payment."""
@@ -2447,7 +2422,6 @@ def get_upcoming_events():
 
 
 @app.route('/api/news/latest', methods=['GET'])
-@app.route('/news/latest', methods=['GET'])
 def get_latest_news():
     """Get latest financial news from yfinance and Moroccan sources."""
     import time
