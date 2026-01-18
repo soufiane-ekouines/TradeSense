@@ -200,34 +200,93 @@ export default function Dashboard() {
     }, []);
 
     // ========== ACCOUNT VALIDATION FUNCTION ==========
+    // Checks if account has won (passed profit target) or lost (hit drawdown limit)
     const validateAccountStatus = useCallback(async () => {
         if (!challenge?.id) return;
         
         try {
-            const { data } = await trades.validateAccount(challenge.id, livePrices);
+            // Calculate current equity based on live prices
+            const startBalance = challenge.start_balance || 100000;
+            const currentEquity = challenge.equity || startBalance;
             
-            // Update account status
-            setAccountStatus(data.status);
-            setIsAccountLocked(data.is_locked);
-            setAccountMetrics(data.metrics);
+            // Calculate unrealized PnL from open positions
+            let unrealizedPnL = 0;
+            Object.entries(activePositionsMap).forEach(([sym, pos]) => {
+                if (Math.abs(pos.qty) > 0.000001) {
+                    const livePrice = livePrices[sym] || 0;
+                    if (livePrice > 0 && pos.avgEntry > 0) {
+                        // PnL = (current - entry) * qty (handles both long/short)
+                        unrealizedPnL += (livePrice - pos.avgEntry) * pos.qty;
+                    }
+                }
+            });
             
-            // Update challenge status if changed
-            if (data.status !== challenge.status) {
-                setChallenge(prev => prev ? { ...prev, status: data.status } : prev);
+            const liveEquity = currentEquity + unrealizedPnL;
+            const profitPct = ((liveEquity - startBalance) / startBalance) * 100;
+            const drawdownPct = ((startBalance - Math.min(liveEquity, startBalance)) / startBalance) * 100;
+            
+            console.log(`[ACCOUNT CHECK] Equity: $${liveEquity.toFixed(2)} | Profit: ${profitPct.toFixed(2)}% | Drawdown: ${drawdownPct.toFixed(2)}%`);
+            
+            // WIN CONDITION: Profit target reached (e.g., +10% for Phase 1)
+            const profitTarget = challenge.profit_target_pct || 10;
+            if (profitPct >= profitTarget && accountStatus !== 'passed') {
+                console.log('🏆 PROFIT TARGET REACHED! Challenge PASSED!');
+                setAccountStatus('passed');
+                setIsAccountLocked(false);
                 setShowStatusOverlay(true);
+                setAccountMetrics({
+                    equity: liveEquity,
+                    profit_pct: profitPct,
+                    drawdown_pct: drawdownPct,
+                    reason: `Profit target of ${profitTarget}% reached!`
+                });
+                return;
             }
             
-            // Update watchdog warnings
-            if (data.warnings?.length > 0) {
-                setWatchdogStatus({
-                    warnings: data.warnings,
-                    danger_level: data.metrics?.drawdown_danger_pct || 0
+            // LOSE CONDITION: Max drawdown breached (e.g., -10%)
+            const maxDrawdown = challenge.max_drawdown_pct || 10;
+            if (drawdownPct >= maxDrawdown && accountStatus !== 'failed') {
+                console.log('🚨 MAX DRAWDOWN BREACHED! Challenge FAILED!');
+                setAccountStatus('failed');
+                setIsAccountLocked(true);
+                setShowStatusOverlay(true);
+                setAccountMetrics({
+                    equity: liveEquity,
+                    profit_pct: profitPct,
+                    drawdown_pct: drawdownPct,
+                    reason: `Maximum drawdown of ${maxDrawdown}% breached`
                 });
+                return;
+            }
+            
+            // Update watchdog warnings if approaching limits
+            const warnings = [];
+            if (drawdownPct >= maxDrawdown * 0.7) {
+                warnings.push(`⚠️ Drawdown at ${drawdownPct.toFixed(1)}% (limit: ${maxDrawdown}%)`);
+            }
+            if (profitPct >= profitTarget * 0.8) {
+                warnings.push(`🎯 Close to target: ${profitPct.toFixed(1)}% (target: ${profitTarget}%)`);
+            }
+            
+            if (warnings.length > 0) {
+                setWatchdogStatus({
+                    warnings,
+                    danger_level: (drawdownPct / maxDrawdown) * 100
+                });
+            }
+            
+            // Also call backend validation for persistence
+            const { data } = await trades.validateAccount(challenge.id, livePrices);
+            if (data.status === 'failed' || data.status === 'passed') {
+                setAccountStatus(data.status);
+                setIsAccountLocked(data.is_locked);
+                setAccountMetrics(data.metrics);
+                setShowStatusOverlay(true);
             }
         } catch (err) {
             console.error('Account validation error', err);
         }
-    }, [challenge?.id, livePrices]);
+    }, [challenge, livePrices, activePositionsMap, accountStatus]);
     // ================================================
 
     const fetchMarketData = useCallback(async (silent = false) => {
@@ -278,64 +337,59 @@ export default function Dashboard() {
     }, [challenge?.id, accountStatus, validateAccountStatus]);
     // ==================================================
 
-    // Polling with faster price updates
+    // Polling for challenge status only (price is handled by SSoT useEffect)
     useEffect(() => {
-        // Fast price polling (every 3s for price ticker responsiveness)
-        const priceInterval = setInterval(() => {
-            fetchMarketData(true);
-        }, 3000);
-
         // Challenge status polling (every 15s for equity sync)
         const challengeInterval = setInterval(() => {
             fetchChallengeData();
         }, 15000);
 
         return () => {
-            clearInterval(priceInterval);
             clearInterval(challengeInterval);
         };
-    }, [fetchMarketData, fetchChallengeData]);
+    }, [fetchChallengeData]);
 
     // ========== SINGLE SOURCE OF TRUTH: Centralized Price Polling ==========
-    // This is THE ONLY place that fetches prices - updates currentPrice, livePrices, and chart
+    // This is THE ONLY place that fetches prices - uses candle.close to match chart
     useEffect(() => {
         const fetchCentralizedPrice = async () => {
             try {
                 // Fetch current symbol's tick (for chart + header)
                 const { data } = await market.getTick(symbol);
                 
-                if (data?.price && data.price > 0) {
+                if (data?.candle) {
                     const now = new Date();
                     
-                    // Update currentPrice (Single Source of Truth)
-                    setCurrentPrice(data.price);
-                    priceRef.current = data.price;
+                    // ========== USE CANDLE CLOSE AS THE PRICE (matches chart) ==========
+                    const chartPrice = data.candle.close;
                     
-                    // Update livePrices for the current symbol
-                    setLivePrices(prev => ({ ...prev, [symbol]: data.price }));
+                    // Update currentPrice (Single Source of Truth - same as chart)
+                    setCurrentPrice(chartPrice);
+                    priceRef.current = chartPrice;
+                    
+                    // Update livePrices for the current symbol (for PnL calculation)
+                    setLivePrices(prev => ({ ...prev, [symbol]: chartPrice }));
                     
                     // Update metadata
                     setLastPriceUpdate(now);
                     setPriceSource(data.source || 'live');
                     
-                    // Update candle for chart (with proper timestamp handling)
-                    if (data.candle) {
-                        // Ensure time is a Unix timestamp (seconds), not an object
-                        const candleTime = typeof data.candle.time === 'number' 
-                            ? data.candle.time 
-                            : Math.floor(Date.now() / 1000);
-                        
-                        setTickCandle({
-                            time: candleTime,
-                            open: data.candle.open,
-                            high: data.candle.high,
-                            low: data.candle.low,
-                            close: data.candle.close,
-                            is_new: data.candle.is_new
-                        });
-                    }
+                    // Ensure time is a Unix timestamp (seconds), not an object
+                    const candleTime = typeof data.candle.time === 'number' 
+                        ? data.candle.time 
+                        : Math.floor(Date.now() / 1000);
                     
-                    console.log(`[PRICE SSoT] ${symbol}: $${data.price.toFixed(2)} (${data.source})`);
+                    // Update candle for chart
+                    setTickCandle({
+                        time: candleTime,
+                        open: data.candle.open,
+                        high: data.candle.high,
+                        low: data.candle.low,
+                        close: chartPrice,
+                        is_new: data.candle.is_new
+                    });
+                    
+                    console.log(`[PRICE SSoT] ${symbol}: $${chartPrice.toFixed(2)} (${data.source}) - CANDLE CLOSE`);
                 }
             } catch (err) {
                 console.error('[PRICE SSoT] Tick fetch error:', err);
