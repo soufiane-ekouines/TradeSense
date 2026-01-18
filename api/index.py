@@ -563,6 +563,51 @@ def get_challenge(challenge_id):
 # Trades Routes
 # ============================================
 
+@app.route('/api/trades', methods=['GET'])
+@app.route('/trades', methods=['GET'])
+@token_required
+def get_trades_by_query():
+    """Get trades for a challenge (challenge_id from query params)."""
+    challenge_id = request.args.get('challenge_id')
+    if not challenge_id:
+        return jsonify({'error': 'challenge_id is required'}), 400
+    
+    try:
+        challenge_id = int(challenge_id)
+    except ValueError:
+        return jsonify({'error': 'Invalid challenge_id'}), 400
+    
+    # Verify challenge belongs to user
+    challenge = query_db(
+        'SELECT id FROM challenges WHERE id = ? AND user_id = ?',
+        (challenge_id, request.user_id),
+        one=True
+    )
+    
+    if not challenge:
+        return jsonify({'error': 'Challenge not found'}), 404
+    
+    trades_list = query_db(
+        'SELECT * FROM trades WHERE challenge_id = ? ORDER BY executed_at DESC',
+        (challenge_id,)
+    )
+    
+    # Format trades for frontend
+    formatted_trades = []
+    for trade in (trades_list or []):
+        formatted_trades.append({
+            'id': trade.get('id'),
+            'symbol': trade.get('symbol'),
+            'side': trade.get('side'),
+            'qty': trade.get('qty'),
+            'price': trade.get('price'),
+            'time': trade.get('executed_at'),
+            'challenge_id': trade.get('challenge_id')
+        })
+    
+    return jsonify(formatted_trades)
+
+
 @app.route('/api/trades/<int:challenge_id>', methods=['GET'])
 @app.route('/trades/<int:challenge_id>', methods=['GET'])
 @token_required
@@ -584,6 +629,65 @@ def get_trades(challenge_id):
     )
     
     return jsonify({'trades': trades})
+
+
+@app.route('/api/trades', methods=['POST'])
+@app.route('/trades', methods=['POST'])
+@token_required
+def create_trade_body():
+    """Create a new trade (challenge_id from request body)."""
+    data = request.get_json()
+    challenge_id = data.get('challenge_id')
+    
+    if not challenge_id:
+        return jsonify({'error': 'challenge_id is required'}), 400
+    
+    # Verify challenge belongs to user and is active
+    challenge = query_db(
+        'SELECT * FROM challenges WHERE id = ? AND user_id = ? AND status = ?',
+        (challenge_id, request.user_id, 'active'),
+        one=True
+    )
+    
+    if not challenge:
+        return jsonify({'error': 'Active challenge not found'}), 404
+    
+    symbol = data.get('symbol')
+    side = data.get('side')
+    qty = data.get('qty')
+    price = data.get('current_price') or data.get('price')
+    
+    if not all([symbol, side, qty, price]):
+        return jsonify({'error': 'Symbol, side, qty, and price are required'}), 400
+    
+    from datetime import datetime
+    executed_at = datetime.utcnow().isoformat()
+    
+    trade_id = execute_db(
+        'INSERT INTO trades (challenge_id, symbol, side, qty, price, executed_at) VALUES (?, ?, ?, ?, ?, ?)',
+        (challenge_id, symbol, side, qty, price, executed_at)
+    )
+    
+    # Update challenge equity (simplified)
+    pnl = qty * price if side == 'sell' else -qty * price
+    new_equity = challenge['equity'] + pnl
+    execute_db('UPDATE challenges SET equity = ? WHERE id = ?', (new_equity, challenge_id))
+    
+    return jsonify({
+        'message': 'Trade executed',
+        'trade': {
+            'id': trade_id,
+            'challenge_id': challenge_id,
+            'symbol': symbol,
+            'side': side,
+            'qty': qty,
+            'price': price,
+            'time': executed_at
+        },
+        'new_equity': new_equity,
+        'equity': {'equity': new_equity},
+        'status': 'active'
+    }), 201
 
 
 @app.route('/api/trades/<int:challenge_id>', methods=['POST'])
@@ -625,6 +729,235 @@ def create_trade(challenge_id):
         'trade_id': trade_id,
         'new_equity': new_equity
     }), 201
+
+
+@app.route('/api/trades/equity/<int:challenge_id>', methods=['GET'])
+@app.route('/trades/equity/<int:challenge_id>', methods=['GET'])
+@token_required
+def get_equity(challenge_id):
+    """Get equity for a challenge."""
+    challenge = query_db(
+        'SELECT * FROM challenges WHERE id = ? AND user_id = ?',
+        (challenge_id, request.user_id),
+        one=True
+    )
+    
+    if not challenge:
+        return jsonify({'error': 'Challenge not found'}), 404
+    
+    return jsonify({
+        'equity': challenge.get('equity', 0),
+        'start_balance': challenge.get('start_balance', 0),
+        'drawdown': (challenge.get('start_balance', 0) - challenge.get('equity', 0)) / challenge.get('start_balance', 1) if challenge.get('start_balance', 0) > 0 else 0
+    })
+
+
+@app.route('/api/trades/positions/<int:challenge_id>', methods=['GET'])
+@app.route('/trades/positions/<int:challenge_id>', methods=['GET'])
+@token_required
+def get_positions(challenge_id):
+    """Get open positions for a challenge."""
+    challenge = query_db(
+        'SELECT id FROM challenges WHERE id = ? AND user_id = ?',
+        (challenge_id, request.user_id),
+        one=True
+    )
+    
+    if not challenge:
+        return jsonify({'error': 'Challenge not found'}), 404
+    
+    # Get all trades to calculate positions
+    trades_list = query_db(
+        'SELECT * FROM trades WHERE challenge_id = ? ORDER BY executed_at ASC',
+        (challenge_id,)
+    )
+    
+    # Calculate net position per symbol
+    positions = {}
+    for trade in (trades_list or []):
+        symbol = trade.get('symbol')
+        qty = trade.get('qty', 0)
+        side = trade.get('side')
+        price = trade.get('price', 0)
+        
+        if symbol not in positions:
+            positions[symbol] = {'symbol': symbol, 'qty': 0, 'avg_price': 0, 'total_cost': 0}
+        
+        if side == 'buy':
+            positions[symbol]['qty'] += qty
+            positions[symbol]['total_cost'] += qty * price
+        else:
+            positions[symbol]['qty'] -= qty
+            positions[symbol]['total_cost'] -= qty * price
+        
+        if positions[symbol]['qty'] != 0:
+            positions[symbol]['avg_price'] = abs(positions[symbol]['total_cost'] / positions[symbol]['qty'])
+    
+    # Filter to only show open positions
+    open_positions = [p for p in positions.values() if abs(p['qty']) > 0.0001]
+    
+    return jsonify({'positions': open_positions})
+
+
+@app.route('/api/trades/watchdog/<int:challenge_id>', methods=['GET'])
+@app.route('/trades/watchdog/<int:challenge_id>', methods=['GET'])
+@token_required
+def get_watchdog(challenge_id):
+    """Get watchdog status for a challenge."""
+    challenge = query_db(
+        'SELECT * FROM challenges WHERE id = ? AND user_id = ?',
+        (challenge_id, request.user_id),
+        one=True
+    )
+    
+    if not challenge:
+        return jsonify({'error': 'Challenge not found'}), 404
+    
+    start_balance = challenge.get('start_balance', 0)
+    equity = challenge.get('equity', 0)
+    max_drawdown = challenge.get('max_drawdown', 0.10)
+    
+    current_drawdown = (start_balance - equity) / start_balance if start_balance > 0 else 0
+    drawdown_pct = current_drawdown * 100
+    danger_level = (current_drawdown / max_drawdown) * 100 if max_drawdown > 0 else 0
+    
+    warnings = []
+    if danger_level > 50:
+        warnings.append({'type': 'drawdown_warning', 'message': f'Drawdown at {drawdown_pct:.1f}% - approaching limit'})
+    if danger_level > 80:
+        warnings.append({'type': 'drawdown_critical', 'message': f'CRITICAL: Drawdown at {drawdown_pct:.1f}% - near maximum allowed'})
+    
+    return jsonify({
+        'warnings': warnings,
+        'danger_level': danger_level,
+        'current_drawdown_pct': drawdown_pct,
+        'max_drawdown_pct': max_drawdown * 100
+    })
+
+
+@app.route('/api/trades/validate-account', methods=['POST'])
+@app.route('/trades/validate-account', methods=['POST'])
+@token_required
+def validate_account():
+    """Validate account status (prop firm rules check)."""
+    data = request.get_json()
+    challenge_id = data.get('challenge_id')
+    
+    if not challenge_id:
+        return jsonify({'error': 'challenge_id is required'}), 400
+    
+    challenge = query_db(
+        'SELECT * FROM challenges WHERE id = ? AND user_id = ?',
+        (challenge_id, request.user_id),
+        one=True
+    )
+    
+    if not challenge:
+        return jsonify({'error': 'Challenge not found'}), 404
+    
+    start_balance = challenge.get('start_balance', 0)
+    equity = challenge.get('equity', 0)
+    max_drawdown = challenge.get('max_drawdown', 0.10)
+    profit_target = challenge.get('profit_target', 0.10)
+    status = challenge.get('status', 'active')
+    
+    # Calculate metrics
+    profit = equity - start_balance
+    profit_pct = (profit / start_balance) * 100 if start_balance > 0 else 0
+    drawdown = (start_balance - equity) / start_balance if start_balance > 0 else 0
+    drawdown_pct = drawdown * 100
+    
+    is_locked = False
+    warnings = []
+    
+    # Check for failure (drawdown exceeded)
+    if drawdown > max_drawdown and status == 'active':
+        status = 'failed'
+        is_locked = True
+        execute_db('UPDATE challenges SET status = ?, failed_at = ? WHERE id = ?', 
+                   (status, datetime.utcnow().isoformat(), challenge_id))
+    
+    # Check for pass (profit target reached)
+    elif profit_pct >= (profit_target * 100) and status == 'active':
+        status = 'passed'
+        execute_db('UPDATE challenges SET status = ?, passed_at = ? WHERE id = ?',
+                   (status, datetime.utcnow().isoformat(), challenge_id))
+    
+    # Add warnings
+    danger_level = (drawdown / max_drawdown) * 100 if max_drawdown > 0 else 0
+    if danger_level > 50:
+        warnings.append({'type': 'drawdown_warning', 'message': f'Drawdown at {drawdown_pct:.1f}%'})
+    
+    return jsonify({
+        'status': status,
+        'is_locked': is_locked,
+        'warnings': warnings,
+        'metrics': {
+            'initial_balance': start_balance,
+            'current_equity': equity,
+            'profit': profit,
+            'profit_pct': profit_pct,
+            'total_drawdown_pct': drawdown_pct,
+            'drawdown_danger_pct': danger_level,
+            'profit_progress_pct': min(100, (profit_pct / (profit_target * 100)) * 100) if profit_target > 0 else 0
+        }
+    })
+
+
+@app.route('/api/trades/close-all', methods=['POST'])
+@app.route('/trades/close-all', methods=['POST'])
+@token_required
+def close_all_positions():
+    """Panic close all positions."""
+    data = request.get_json()
+    challenge_id = data.get('challenge_id')
+    
+    if not challenge_id:
+        return jsonify({'error': 'challenge_id is required'}), 400
+    
+    challenge = query_db(
+        'SELECT * FROM challenges WHERE id = ? AND user_id = ? AND status = ?',
+        (challenge_id, request.user_id, 'active'),
+        one=True
+    )
+    
+    if not challenge:
+        return jsonify({'error': 'Active challenge not found'}), 404
+    
+    # This is a simplified implementation
+    # In production, you'd calculate positions and close them at market price
+    return jsonify({
+        'message': 'All positions closed',
+        'closed_count': 0
+    })
+
+
+@app.route('/api/trades/risk/<int:challenge_id>', methods=['GET'])
+@app.route('/trades/risk/<int:challenge_id>', methods=['GET'])
+@token_required
+def get_risk(challenge_id):
+    """Get risk metrics for a challenge."""
+    challenge = query_db(
+        'SELECT * FROM challenges WHERE id = ? AND user_id = ?',
+        (challenge_id, request.user_id),
+        one=True
+    )
+    
+    if not challenge:
+        return jsonify({'error': 'Challenge not found'}), 404
+    
+    start_balance = challenge.get('start_balance', 0)
+    equity = challenge.get('equity', 0)
+    max_drawdown = challenge.get('max_drawdown', 0.10)
+    
+    current_drawdown = (start_balance - equity) / start_balance if start_balance > 0 else 0
+    
+    return jsonify({
+        'current_drawdown': current_drawdown,
+        'max_allowed_drawdown': max_drawdown,
+        'remaining_drawdown': max_drawdown - current_drawdown,
+        'risk_level': 'high' if current_drawdown > max_drawdown * 0.8 else 'medium' if current_drawdown > max_drawdown * 0.5 else 'low'
+    })
 
 
 # ============================================
@@ -1077,6 +1410,43 @@ def send_dm_message(tenant, user_id):
 # ============================================
 # Market Data Routes
 # ============================================
+
+@app.route('/api/market/quote', methods=['GET'])
+@app.route('/market/quote', methods=['GET'])
+def get_market_quote():
+    """Get a single market quote for a symbol."""
+    symbol = request.args.get('symbol', 'BTC-USD')
+    
+    import random
+    
+    # Base prices for different symbols
+    base_prices = {
+        'BTC-USD': 43000,
+        'ETH-USD': 2500,
+        'GOLD': 2045,
+        'EUR-USD': 1.0875,
+        'IAM': 120,
+        'ATW': 450,
+        'BCP': 280,
+        'AAPL': 185,
+        'TSLA': 248,
+    }
+    
+    base_price = base_prices.get(symbol, 100)
+    volatility = base_price * 0.001  # Small variation
+    current_price = base_price + random.uniform(-volatility, volatility)
+    change = random.uniform(-base_price * 0.02, base_price * 0.02)
+    
+    return jsonify({
+        'symbol': symbol,
+        'price': round(current_price, 4),
+        'change': round(change, 4),
+        'change_pct': round((change / base_price) * 100, 2),
+        'bid': round(current_price - volatility * 0.1, 4),
+        'ask': round(current_price + volatility * 0.1, 4),
+        'volume': random.randint(1000000, 10000000)
+    })
+
 
 @app.route('/api/market/quotes', methods=['GET'])
 @app.route('/market/quotes', methods=['GET'])
